@@ -1,0 +1,12 @@
+name: RenCal_app
+title: RenCal_app
+username: rshinysoftware
+account: rshinysoftware
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 14364529
+bundleId: 10017913
+url: https://rshinysoftware.shinyapps.io/RenCal_app/
+version: 1
+asMultiple: FALSE
+asStatic: FALSE

@@ -1,4 +1,5 @@
 # app.R
+
 # Verificar si devtools está instalado y cargarlo
 if (!require("devtools", quietly = TRUE)) {
   install.packages("devtools")
