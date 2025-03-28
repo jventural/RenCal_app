@@ -135,13 +135,20 @@ ui <- dashboardPage(
                   fluidRow(
                     column(6,
                            h4("Puntaje Total RENACYT"),
-                           textOutput("total_renacyt_puntaje")
+                           tags$div(
+                             style = "font-size: 20px; font-weight: bold; color: #3c8dbc;",
+                             textOutput("total_renacyt_puntaje")
+                           )
                     ),
                     column(6,
                            h4("Calificación"),
-                           textOutput("renacyt_calificacion")
+                           tags$div(
+                             style = "font-size: 20px; font-weight: bold; color: #3c8dbc;",
+                             textOutput("renacyt_calificacion")
+                           )
                     )
                   )
+                  
               )
       ),
       
