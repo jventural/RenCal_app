@@ -1,18 +1,22 @@
 # app.R
-# Lista de paquetes necesarios
-paquetes_necesarios <- c("shiny", "shinydashboard", "rvest", "tidyverse", "readxl", "stringi", "DT")
-
-# Verificar qué paquetes faltan y, de ser necesario, instalarlos
-paquetes_faltantes <- paquetes_necesarios[!(paquetes_necesarios %in% installed.packages()[, "Package"])]
-if (length(paquetes_faltantes) > 0) {
-  install.packages(paquetes_faltantes, dependencies = TRUE)
-}
-
-# Instalar devtools si no está instalado, para poder instalar paquetes desde GitHub (si es necesario)
+# Verificar si devtools está instalado y cargarlo
 if (!require("devtools", quietly = TRUE)) {
   install.packages("devtools")
   library(devtools)
 }
+
+# Lista de paquetes necesarios
+paquetes <- c("shiny", "shinydashboard", "rvest", "tidyverse", "readxl", "stringi", "DT", "curl", "httr2")
+
+# Bucle para instalar y cargar cada paquete si es necesario
+for (pkg in paquetes) {
+  if (!require(pkg, character.only = TRUE, quietly = TRUE)) {
+    install.packages(pkg, dependencies = TRUE)
+    library(pkg, character.only = TRUE)
+  }
+}
+
+
 # Carga de librerías
 library(shiny)
 library(shinydashboard)
@@ -21,6 +25,8 @@ library(tidyverse)
 library(readxl)
 library(stringi)
 library(DT)
+library(curl)
+library(httr2)
 
 # Interfaz de usuario con shinydashboard
 ui <- dashboardPage(
