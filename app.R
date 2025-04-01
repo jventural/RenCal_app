@@ -331,7 +331,7 @@ server <- function(input, output, session) {
           score = case_when(
             str_detect(Tesis, regex("Doctorado", ignore_case = TRUE)) ~ 2,
             str_detect(Tesis, regex("Magister", ignore_case = TRUE)) ~ 1,
-            str_detect(Tesis, regex("Bachiller|Título Profesional", ignore_case = TRUE)) ~ 0.5,
+            str_detect(Tesis, regex("Bachiller|Título Profesional|Licenciado / Título", ignore_case = TRUE)) ~ 0.5,
             TRUE ~ 0
           )
         ) %>%
