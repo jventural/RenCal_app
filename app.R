@@ -17,7 +17,6 @@ for (pkg in paquetes) {
   }
 }
 
-
 # Carga de librerías
 library(shiny)
 library(shinydashboard)
@@ -28,6 +27,7 @@ library(stringi)
 library(DT)
 library(curl)
 library(httr2)
+library(dplyr)  # Para usar mutate y case_when
 
 # Interfaz de usuario con shinydashboard
 ui <- dashboardPage(
@@ -79,14 +79,15 @@ ui <- dashboardPage(
       # Pestaña Scraping
       tabItem(tabName = "scraping",
               box(width = 12, title = "Scraping de CTIVITAE", status = "primary", solidHeader = TRUE,
-                  # TextInput vacío para que el usuario ingrese la URL
+                  # TextInput para que el usuario ingrese la URL; si se deja vacío se usará la URL por defecto
                   textInput("url_invest", "URL Investigador", value = ""),
                   actionButton("run", "Ejecutar Análisis"),
                   br(), br(),
                   tabsetPanel(
                     tabPanel("Asesoría", tableOutput("asesor_table")),
                     tabPanel("Formación Académica", tableOutput("formacion_table")),
-                    tabPanel("Producción científica", tableOutput("produccion_table"))
+                    tabPanel("Producción científica", tableOutput("produccion_table")),
+                    tabPanel("Derechos de Propiedad Intelectual", tableOutput("dpi_table"))
                   )
               )
       ),
@@ -116,9 +117,8 @@ ui <- dashboardPage(
                   ),
                   fluidRow(
                     column(6,
-                           numericInput("registro_propiedad", 
-                                        "Registro de Propiedad Intelectual", 
-                                        value = 0, min = 0, max = 100, step = 1)
+                           h4("Registro de Propiedad Intelectual"),
+                           verbatimTextOutput("registro_propiedad_calculado")
                     ),
                     column(6,
                            numericInput("libros_capitulos", 
@@ -186,7 +186,7 @@ server <- function(input, output, session) {
     )
   }, deleteFile = FALSE)
   
-  # Funciones para el cálculo de puntaje y calificación RENACYT
+  # Función para el cálculo de puntaje y calificación RENACYT
   GetPuntajeSum <- function(Grado = 0, Articulos = 0, Patentes = 0, Libros = 0, Asesorias = 0) {
     Grado + Articulos + Patentes + Libros + Asesorias
   }
@@ -221,7 +221,7 @@ server <- function(input, output, session) {
     }
   }
   
-  # Función para extraer tablas desde CTIVITAE
+  # Función para extraer una tabla desde una sección del sitio
   extraer_tabla <- function(page, texto_seccion) {
     tryCatch({
       raw_table <- page %>% 
@@ -242,7 +242,12 @@ server <- function(input, output, session) {
     withProgress(message = "Realizando análisis...", value = 0, {
       
       incProgress(0.1, detail = "Extrayendo datos de CTIVITAE")
-      url_invest <- input$url_invest
+      
+      # Usar URL ingresada o la URL por defecto si está vacío
+      url_invest <- ifelse(input$url_invest == "", 
+                           "https://ctivitae.concytec.gob.pe/appDirectorioCTI/VerDatosInvestigador.do?id_investigador=74018", 
+                           input$url_invest)
+      
       page <- tryCatch({
         read_html(url_invest)
       }, error = function(e) {
@@ -254,10 +259,38 @@ server <- function(input, output, session) {
         asesor    <- extraer_tabla(page, "Experiencia como Asesor de Tesis")
         formacion <- extraer_tabla(page, "Formación Académica (Fuente: SUNEDU)")
         produccion <- extraer_tabla(page, "Producción científica")
+        derechos_propiedad_intelectual <- extraer_tabla(page, "Derechos de Propiedad Intelectual")
+        
+        # Procesar Derechos de Propiedad Intelectual para calcular puntaje
+        registro_propiedad_calculado <- 0
+        if (!is.null(derechos_propiedad_intelectual) && "Tipo de PI" %in% colnames(derechos_propiedad_intelectual)) {
+          derechos_propiedad_intelectual <- derechos_propiedad_intelectual %>%
+            mutate(Puntuacion = case_when(
+              `Tipo de PI` %in% c("Patente de invención", "Certificado de Obtentor", 
+                                  "Paquete tecnológico", "Registro de certificado de obtentor") ~ 3L,
+              `Tipo de PI` %in% c("Patente de modelo de utilidad", 
+                                  "certificado de derecho de autor por software") ~ 1L,
+              TRUE ~ 0L
+            ))
+          
+          registro_propiedad_calculado <- sum(derechos_propiedad_intelectual$Puntuacion, na.rm = TRUE)
+        }
+        
+        # Imprimir resultados en consola
+        cat("Tabla de Asesoría:\n")
+        print(asesor)
+        cat("\nTabla de Formación Académica:\n")
+        print(formacion)
+        cat("\nTabla de Producción científica:\n")
+        print(produccion)
+        cat("\nTabla de Derechos de Propiedad Intelectual:\n")
+        print(derechos_propiedad_intelectual)
       } else {
         asesor <- data.frame(Mensaje = "No se pudo cargar la página.")
         formacion <- asesor
         produccion <- asesor
+        derechos_propiedad_intelectual <- asesor
+        registro_propiedad_calculado <- 0
       }
       
       incProgress(0.2, detail = "Leyendo archivos Excel")
@@ -273,7 +306,7 @@ server <- function(input, output, session) {
       
       data_joined <- produccion_norm %>%
         left_join(df_scopus_norm, by = "Revista_norm", relationship = "many-to-many") %>% 
-        filter(!(`Tipo Producción` %in% c("DoctoralThesis", "MasterThesis", "Note", "Editorial", "Letter"))) %>% 
+        filter(!( `Tipo Producción` %in% c("DoctoralThesis", "MasterThesis", "Note", "Editorial", "Letter"))) %>% 
         na.omit()
       
       resumen <- data_joined %>%
@@ -344,6 +377,8 @@ server <- function(input, output, session) {
         asesor            = asesor,
         formacion         = formacion,
         produccion        = produccion,
+        derechos_propiedad_intelectual = derechos_propiedad_intelectual,
+        registro_propiedad_calculado = registro_propiedad_calculado,
         df_final          = df_final,
         total_suma_valor  = total_suma_valor,  # Artículos Científicos
         puntaje_formacion = puntaje_final,    # Grado Académico
@@ -358,7 +393,7 @@ server <- function(input, output, session) {
     GetPuntajeSum(
       Grado = analysisData()$puntaje_formacion,
       Articulos = analysisData()$total_suma_valor,
-      Patentes = input$registro_propiedad,
+      Patentes = analysisData()$registro_propiedad_calculado,
       Libros = input$libros_capitulos,
       Asesorias = analysisData()$puntaje_asesor
     )
@@ -383,6 +418,11 @@ server <- function(input, output, session) {
   output$produccion_table <- renderTable({
     req(analysisData())
     analysisData()$produccion
+  })
+  
+  output$dpi_table <- renderTable({
+    req(analysisData())
+    analysisData()$derechos_propiedad_intelectual
   })
   
   # Salidas en la pestaña "Producción Científica"
@@ -410,6 +450,11 @@ server <- function(input, output, session) {
   output$asesoria_tesis <- renderPrint({
     req(analysisData())
     analysisData()$puntaje_asesor
+  })
+  
+  output$registro_propiedad_calculado <- renderPrint({
+    req(analysisData())
+    analysisData()$registro_propiedad_calculado
   })
   
   output$total_renacyt_puntaje <- renderText({
