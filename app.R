@@ -306,7 +306,7 @@ server <- function(input, output, session) {
       
       data_joined <- produccion_norm %>%
         left_join(df_scopus_norm, by = "Revista_norm", relationship = "many-to-many") %>% 
-        filter(!( `Tipo Producción` %in% c("DoctoralThesis", "MasterThesis", "Note", "Editorial", "Letter"))) %>% 
+        filter(!( `Tipo Producción` %in% c("DoctoralThesis", "MasterThesis", "Note", "Editorial", "Letter", "Journal - Meeting Abstract"))) %>% 
         na.omit()
       
       resumen <- data_joined %>%
