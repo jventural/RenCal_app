@@ -155,7 +155,6 @@ ui <- dashboardPage(
                            )
                     )
                   )
-                  
               )
       ),
       
@@ -191,8 +190,12 @@ server <- function(input, output, session) {
     Grado + Articulos + Patentes + Libros + Asesorias
   }
   
-  Getcalificacion <- function(value = 0, IndiceH = "No") {
-    if (value == 0) {
+  # Función actualizada para obtener la calificación incluyendo la verificación de producción total
+  Getcalificacion <- function(value = 0, IndiceH = "No", prod_total = 0) {
+    # Verificar que la producción total tenga al menos 6 puntos
+    if (prod_total < 6) {
+      "No califica: no tiene 6 puntos en producción total"
+    } else if (value == 0) {
       "No califica: Requiere al menos un ítem en Producción"
     } else if (value == 1) {
       "No califica: Estudiantes requieren 9 en producción"
@@ -387,7 +390,7 @@ server <- function(input, output, session) {
     })
   })
   
-  # Reactivos para el puntaje total RENACYT y la calificación
+  # Reactivo para el puntaje total RENACYT
   total_renacyt_puntaje <- reactive({
     req(analysisData())
     GetPuntajeSum(
@@ -399,9 +402,20 @@ server <- function(input, output, session) {
     )
   })
   
+  # Reactivo para calcular la producción total en los ítems: Artículos, Registro de PI y Libros y Capítulos
+  production_total <- reactive({
+    req(analysisData())
+    analysisData()$total_suma_valor + analysisData()$registro_propiedad_calculado + input$libros_capitulos
+  })
+  
+  # Reactivo para la calificación RENACYT, ahora considerando la producción total mínima de 6 puntos
   renacyt_calificacion <- reactive({
-    req(total_renacyt_puntaje())
-    Getcalificacion(value = total_renacyt_puntaje(), IndiceH = input$indice_h)
+    req(total_renacyt_puntaje(), production_total())
+    Getcalificacion(
+      value = total_renacyt_puntaje(),
+      IndiceH = input$indice_h,
+      prod_total = production_total()
+    )
   })
   
   # Salidas en la pestaña "Scraping"
