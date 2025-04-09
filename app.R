@@ -317,11 +317,18 @@ server <- function(input, output, session) {
         distinct(Título, .keep_all = TRUE)
       
       data_joined2 <- resumen %>%
-        mutate(AnioProd = as.numeric(`Año de Producción`),
-               join_year = if_else(AnioProd %in% c(2023, 2024, 2025), 2023, AnioProd)) %>%
-        left_join(df_scopus_norm %>% rename(join_year = year), 
-                  by = c("Revista_norm", "join_year"), 
-                  relationship = "many-to-many")
+        mutate(
+          AnioProd = as.numeric(`Año de Producción`),
+          join_year = case_when(
+            AnioProd %in% c(2024, 2025) ~ 2024,
+            TRUE                         ~ AnioProd
+          )
+        ) %>%
+        left_join(
+          df_scopus_norm %>% rename(join_year = year),
+          by = c("Revista_norm", "join_year"),
+          relationship = "many-to-many"
+        )
       
       df_final <- data_joined2 %>%
         select(Revista_norm, `Año de Producción`, Título, `Cuartil de ScimagoJR o JCR*`, Cuartil.y, Valor.y) %>% 
