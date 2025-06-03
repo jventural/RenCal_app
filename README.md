@@ -1,5 +1,5 @@
 ## Installation
-You can use RenCal_app Shiny App from Github using the following command :
+You can use the RenCal_app Shiny app from GitHub by running the following command in RStudio:
 ```r
 if (!require("shiny")) {
   install.packages("shiny")
