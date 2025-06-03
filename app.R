@@ -127,9 +127,9 @@ ui <- dashboardPage(
                   actionButton("run", "Ejecutar Análisis"),
                   br(), br(),
                   tabsetPanel(
-                    tabPanel("Asesoría", tableOutput("asesor_table")),
-                    tabPanel("Formación Académica", tableOutput("formacion_table")),
-                    tabPanel("Producción Científica", tableOutput("produccion_table")),
+                    tabPanel("Asesoria", tableOutput("asesor_table")),
+                    tabPanel("Formacion Academica", tableOutput("formacion_table")),
+                    tabPanel("Produccion cientifica", tableOutput("produccion_table")),
                     tabPanel("Derechos de Propiedad Intelectual", tableOutput("dpi_table"))
                   )
               )
@@ -140,7 +140,7 @@ ui <- dashboardPage(
               box(width = 12, title = "Resumen de Publicaciones", status = "primary", solidHeader = TRUE,
                   DT::dataTableOutput("df_final_table"),
                   br(),
-                  h4("Puntaje total de Artículos Científicos:"),
+                  h4("Puntaje total de Articulos Cientificos:"),
                   verbatimTextOutput("total_valor")
               )
       ),
@@ -150,11 +150,11 @@ ui <- dashboardPage(
               box(width = 12, title = "Cálculo de Puntajes RENACYT", status = "primary", solidHeader = TRUE,
                   fluidRow(
                     column(6,
-                           h4("Grado Académico (Max. 10 puntos)"),
+                           h4("Grado Academico (Max. 10 puntos)"),
                            verbatimTextOutput("grado_academico")
                     ),
                     column(6,
-                           h4("Artículos Científicos"),
+                           h4("Articulos Cientificos"),
                            verbatimTextOutput("articulos_cientificos")
                     )
                   ),
@@ -165,19 +165,19 @@ ui <- dashboardPage(
                     ),
                     column(6,
                            numericInput("libros_capitulos", 
-                                        "Libros y Capítulos (Max. 10 puntos)", 
+                                        "Libros y Capitulos (Max. 10 puntos)", 
                                         value = 0, min = 0, max = 10, step = 1)
                     )
                   ),
                   fluidRow(
                     column(6,
                            selectInput("indice_h", 
-                                       "Índice H (>=10)", 
-                                       choices = c("No", "Sí"), 
+                                       "Indice H (>=10)", 
+                                       choices = c("No", "Si"), 
                                        selected = "No")
                     ),
                     column(6,
-                           h4("Asesorías de tesis (Max. 10 puntos)"),
+                           h4("Asesorias de tesis (Max. 10 puntos)"),
                            verbatimTextOutput("asesoria_tesis")
                     )
                   ),
@@ -191,7 +191,7 @@ ui <- dashboardPage(
                            )
                     ),
                     column(6,
-                           h4("Calificación"),
+                           h4("Calificacion"),
                            tags$div(
                              style = "font-size: 20px; font-weight: bold; color: #3c8dbc;",
                              textOutput("renacyt_calificacion")
@@ -204,7 +204,7 @@ ui <- dashboardPage(
       # Pestaña Acerca del autor
       tabItem(tabName = "about",
               box(width = 12, title = "Acerca del autor", status = "primary", solidHeader = TRUE,
-                  tags$p("José Ventura-León es Doctor en Psicología y Magíster en Psicología Educativa. Actualmente es Docente Investigador a tiempo completo en la UPN."),
+                  tags$p("José Ventura-León es Doctor en Psicología y Magister en Psicología Educativa. Actualmente es Docente Investigador a tiempo completo en la UPN."),
                   tags$p("Más información en: ", tags$a(href = "https://joseventuraleon.com/", "joseventuraleon.com", target = "_blank")),
                   tags$p("Para consultas o reportar errores, escriba a: info@joseventuraleon.com")
               )
@@ -224,7 +224,7 @@ server <- function(input, output, session) {
       contentType = 'image/png',
       width = 950,
       height = 750,
-      alt = "Anexo Nº 1 RENACYT"
+      alt = "Anexo N  1 RENACYT"
     )
   }, deleteFile = FALSE)
   
@@ -237,43 +237,43 @@ server <- function(input, output, session) {
   Getcalificacion <- function(value = 0, IndiceH = "No", prod_total = 0) {
     # Verificar que la producción total tenga al menos 6 puntos
     if (prod_total < 6) {
-      "No califica: no tiene 6 puntos en producción total"
+      "No califica: no tiene 6 puntos en produccion total"
     } else if (value == 0) {
-      "No califica: Requiere al menos un ítem en Producción"
+      "No califica: Requiere al menos un item en Produccion"
     } else if (value == 1) {
-      "No califica: Estudiantes requieren 9 en producción"
+      "No califica: Estudiantes requieren 9 en produccion"
     } else if (value > 1 && value < 6) {
-      "No califica: Requiere al menos 6 en producción"
+      "No califica: Requiere al menos 6 en produccion"
     } else if (value < 10) {
       "No califica: Requiere al menos 10 en puntaje total"
     } else if (value <= 24) {
-      "Sí califica: Nivel VII"
+      "Si califica: Nivel VII"
     } else if (value <= 34) {
-      "Sí califica: Nivel VI"
+      "Si califica: Nivel VI"
     } else if (value <= 49) {
-      "Sí califica: Nivel V"
+      "Si califica: Nivel V"
     } else if (value <= 69) {
-      "Sí califica: Nivel IV"
+      "Si califica: Nivel IV"
     } else if (value <= 99) {
-      "Sí califica: Nivel III"
+      "Si califica: Nivel III"
     } else if (value <= 159) {
-      "Sí califica: Nivel II"
+      "Si califica: Nivel II"
     } else if (value <= 199) {
-      "Sí califica: Nivel I"
-    } else if (IndiceH == "Sí") {
+      "Si califica: Nivel I"
+    } else if (IndiceH == "Si") {
       "Investigador Distinguido"
     } else {
-      "Sí califica: Nivel I"
+      "Si califica: Nivel I"
     }
   }
   
-  # Evento principal: al pulsar "Ejecutar Análisis" se muestra barra de progreso
+  # Evento principal: al pulsar "Ejecutar Analisis" se muestra barra de progreso
   analysisData <- eventReactive(input$run, {
-    withProgress(message = "Realizando análisis...", value = 0, {
+    withProgress(message = "Realizando analisis...", value = 0, {
       
       incProgress(0.1, detail = "Extrayendo datos de CTIVITAE")
       
-      # Usar URL ingresada o la URL por defecto si está vacío
+      # Usar URL ingresada o la URL por defecto si esta vacio
       url_invest <- ifelse(input$url_invest == "", 
                            "https://ctivitae.concytec.gob.pe/appDirectorioCTI/VerDatosInvestigador.do?id_investigador=74018", 
                            input$url_invest)
@@ -281,7 +281,7 @@ server <- function(input, output, session) {
       page <- tryCatch({
         read_html(url_invest)
       }, error = function(e) {
-        cat("Error al cargar la página:", e$message, "\n")
+        cat("Error al cargar la pagina:", e$message, "\n")
         return(NULL)
       })
       
@@ -318,16 +318,16 @@ server <- function(input, output, session) {
         }
         
         # Imprimir resultados en consola (ya recodificados)
-        cat("Tabla de Asesoría:\n")
+        cat("Tabla de Asesoria:\n")
         print(asesor)
-        cat("\nTabla de Formación Académica:\n")
+        cat("\nTabla de Formacion Academica:\n")
         print(formacion)
-        cat("\nTabla de Producción científica:\n")
+        cat("\nTabla de Produccion cientifica:\n")
         print(produccion)
         cat("\nTabla de Derechos de Propiedad Intelectual:\n")
         print(derechos_propiedad_intelectual)
       } else {
-        asesor <- data.frame(Mensaje = "No se pudo cargar la página.")
+        asesor <- data.frame(Mensaje = "No se pudo cargar la pagina.")
         formacion <- asesor
         produccion <- asesor
         derechos_propiedad_intelectual <- asesor
@@ -339,7 +339,7 @@ server <- function(input, output, session) {
       Scielo_Data <- read_excel("Scielo_Data.xlsx")
       
       incProgress(0.2, detail = "Procesando y normalizando datos")
-      # Normalizamos produccion para quitar acentos y pasar a minúsculas
+      # Normalizamos produccion para quitar acentos y pasar a minusculas
       produccion_norm <- produccion %>%
         mutate(Revista_norm = tolower(stri_trans_general(Revista, "Latin-ASCII")))
       
@@ -421,7 +421,7 @@ server <- function(input, output, session) {
         mutate(total = if_else(total > 10, 10, total)) %>%
         pull(total)
       
-      incProgress(0.1, detail = "Finalizando análisis")
+      incProgress(0.1, detail = "Finalizando analisis")
       list(
         asesor            = asesor,
         formacion         = formacion,
@@ -429,9 +429,9 @@ server <- function(input, output, session) {
         derechos_propiedad_intelectual = derechos_propiedad_intelectual,
         registro_propiedad_calculado = registro_propiedad_calculado,
         df_final          = df_final,
-        total_suma_valor  = total_suma_valor,  # Artículos Científicos
-        puntaje_formacion = puntaje_final,    # Grado Académico
-        puntaje_asesor    = puntaje_total2    # Asesorías de tesis
+        total_suma_valor  = total_suma_valor,  # Articulos Cientificos
+        puntaje_formacion = puntaje_final,    # Grado Academico
+        puntaje_asesor    = puntaje_total2    # Asesorias de tesis
       )
     })
   })
@@ -448,7 +448,7 @@ server <- function(input, output, session) {
     )
   })
   
-  # Reactivo para calcular la producción total en los ítems: Artículos, Registro de PI y Libros y Capítulos
+  # Reactivo para calcular la producción total en los ítems: Articulos, Registro de PI y Libros y Capitulos
   production_total <- reactive({
     req(analysisData())
     analysisData()$total_suma_valor + analysisData()$registro_propiedad_calculado + input$libros_capitulos
@@ -464,106 +464,31 @@ server <- function(input, output, session) {
     )
   })
   
-  # Salidas en la pestaña "Scraping" (con tildes restauradas en los nombres de columna)
+  # Salidas en la pestaña "Scraping"
   output$asesor_table <- renderTable({
     req(analysisData())
-    asesor <- analysisData()$asesor
-    
-    # Renombrar columnas para que muestren tildes
-    if (!is.null(asesor) && ncol(asesor) > 0) {
-      asesor <- asesor %>%
-        rename(
-          "Universidad"               = "Universidad",
-          "Tesis"                     = "Tesis",
-          "Tesista(s)"                = "Tesista(s)",
-          "Repositorio"               = "Repositorio",
-          "Fecha Aceptación de Tesis" = "Fecha Aceptacion de Tesis"
-        )
-    }
-    asesor
+    analysisData()$asesor
   })
   
   output$formacion_table <- renderTable({
     req(analysisData())
-    formacion <- analysisData()$formacion
-    
-    # Renombrar columnas para que muestren tildes
-    if (!is.null(formacion) && ncol(formacion) > 0) {
-      formacion <- formacion %>%
-        rename(
-          "Grado"               = "Grado",
-          "Título"              = "Titulo",
-          "Centro de Estudios"  = "Centro de Estudios",
-          "País de Estudios"    = "Pais de Estudios",
-          "Fuente"              = "Fuente"
-        )
-    }
-    formacion
+    analysisData()$formacion
   })
   
   output$produccion_table <- renderTable({
     req(analysisData())
-    produccion <- analysisData()$produccion
-    
-    # Renombrar columnas para que muestren tildes
-    if (!is.null(produccion) && ncol(produccion) > 0) {
-      produccion <- produccion %>%
-        rename(
-          "Tipo Producción"              = "Tipo Produccion",
-          "Título"                       = "Titulo",
-          "Autor"                        = "Autor",
-          "Año de Producción"            = "Ano de Produccion",
-          "DOI"                          = "DOI",
-          "Revista"                      = "Revista",
-          "Fuente"                       = "Fuente",
-          "Cuartil de ScimagoJR o JCR*"  = "Cuartil de ScimagoJR o JCR*"
-        )
-    }
-    produccion
+    analysisData()$produccion
   })
   
   output$dpi_table <- renderTable({
     req(analysisData())
-    dpi <- analysisData()$derechos_propiedad_intelectual
-    
-    # Renombrar columnas para que muestren tildes
-    if (!is.null(dpi) && ncol(dpi) > 0) {
-      dpi <- dpi %>%
-        rename(
-          "Título de la Propiedad Intelectual (PI)" = "Titulo de la Propiedad Intelectual (PI)",
-          "Tipo de PI"               = "Tipo de PI",
-          "Entidad donde se tramitó la PI" = "Entidad donde se tramite la PI",
-          "País"                     = "Pais",
-          "Nombre del propietario de la PI" = "Nombre del propietario de la PI",
-          "Trámite vía PCT"          = "Tramite via PCT",
-          "Estado de la patente"     = "Estado de la patente",
-          "Número de registro de la PI" = "Numero de registrode la PI",
-          "Rol de participación"     = "Rol de participacion",
-          "Participación en los derechos de la PI" = "Participacion en los derechos de la PI",
-          "Puntuación"               = "Puntuacion"
-        )
-    }
-    dpi
+    analysisData()$derechos_propiedad_intelectual
   })
   
   # Salidas en la pestaña "Producción Científica"
   output$df_final_table <- DT::renderDataTable({
     req(analysisData())
-    df <- analysisData()$df_final
-    
-    # Antes de mostrar, renombrar columnas para restaurar tildes
-    if (!is.null(df) && ncol(df) > 0) {
-      df <- df %>%
-        rename(
-          "Revista"                = "Revista_norm",
-          "Año de Publicación"     = "Ano de Produccion",
-          "Título"                 = "Titulo",
-          "Cuartil de ScimagoJR o JCR*" = "Cuartil de ScimagoJR o JCR*",
-          "Cuartil"                = "Cuartil",
-          "Valor"                  = "Value"
-        )
-    }
-    DT::datatable(df, options = list(pageLength = 10, autoWidth = TRUE))
+    analysisData()$df_final
   })
   
   output$total_valor <- renderPrint({
