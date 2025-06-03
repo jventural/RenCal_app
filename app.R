@@ -526,13 +526,13 @@ server <- function(input, output, session) {
     req(analysisData())
     dpi <- analysisData()$derechos_propiedad_intelectual
     
-    # Renombrar columnas para que muestren tildes
+    # Renombrar columnas para que muestren tildes (coincidiendo con nombres sin tildes)
     if (!is.null(dpi) && ncol(dpi) > 0) {
       dpi <- dpi %>%
         rename(
           "Título de la Propiedad Intelectual (PI)" = "Titulo de la Propiedad Intelectual (PI)",
           "Tipo de PI"               = "Tipo de PI",
-          "Entidad donde se tramitó la PI" = "Entidad donde se tramite la PI",
+          "Entidad donde se tramitó la PI" = "Entidad donde se tramito la PI",
           "País"                     = "Pais",
           "Nombre del propietario de la PI" = "Nombre del propietario de la PI",
           "Trámite vía PCT"          = "Tramite via PCT",
