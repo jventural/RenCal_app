@@ -1,6 +1,6 @@
 # app.R
 
-# 1) Forzar tanto LANG como LC_CTYPE a UTF-8
+# 1) Forzar tnto LANG como LC_CTYPE a UTF-8
 Sys.setenv(LANG = "es_PE.UTF-8")
 Sys.setlocale("LC_CTYPE", "es_PE.UTF-8")
 
