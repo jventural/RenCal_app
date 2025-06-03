@@ -1,6 +1,9 @@
 # app.R
 
+# 1) Forzar tanto LANG como LC_CTYPE a UTF-8
 Sys.setenv(LANG = "es_PE.UTF-8")
+Sys.setlocale("LC_CTYPE", "es_PE.UTF-8")
+
 
 # Verificar si devtools está instalado y cargarlos
 if (!require("devtools", quietly = TRUE)) {
