@@ -5,7 +5,7 @@ Sys.setenv(LANG = "es_PE.UTF-8")
 Sys.setlocale("LC_CTYPE", "es_PE.UTF-8")
 
 
-# Verificar si devtools está instalado y cargarlos
+# Verificar si devtools está instalado y cargarlo
 if (!require("devtools", quietly = TRUE)) {
   install.packages("devtools")
   library(devtools)
@@ -32,7 +32,8 @@ library(stringi)
 library(DT)
 library(curl)
 library(httr2)
-library(dplyr)  # Para usar mutate y case_when
+library(dplyr)  # Para mutate, across, etc.
+
 
 # Interfaz de usuario con shinydashboard
 ui <- dashboardPage(
@@ -266,8 +267,19 @@ server <- function(input, output, session) {
       if (!is.null(page)) {
         asesor    <- extraer_tabla(page, "Experiencia como Asesor de Tesis")
         formacion <- extraer_tabla(page, "Formación Académica (Fuente: SUNEDU)")
-        produccion <- extraer_tabla(page, "Producción científica")
+        produccion_raw <- extraer_tabla(page, "Producción científica")
         derechos_propiedad_intelectual <- extraer_tabla(page, "Derechos de Propiedad Intelectual")
+        
+        # --------------------------------------------------------------------
+        # Aquí aplicamos la recodificación UTF-8 a la tabla de "producción_raw"
+        # --------------------------------------------------------------------
+        if (!is.null(produccion_raw) && nrow(produccion_raw) > 0) {
+          produccion <- produccion_raw %>%
+            { names(.) <- enc2utf8(names(.)); . } %>%
+            mutate(across(where(is.character), enc2utf8))
+        } else {
+          produccion <- produccion_raw
+        }
         
         # Procesar Derechos de Propiedad Intelectual para calcular puntaje
         registro_propiedad_calculado <- 0
@@ -284,7 +296,7 @@ server <- function(input, output, session) {
           registro_propiedad_calculado <- sum(derechos_propiedad_intelectual$Puntuacion, na.rm = TRUE)
         }
         
-        # Imprimir resultados en consola
+        # Imprimir resultados en consola (ya recodificados)
         cat("Tabla de Asesoría:\n")
         print(asesor)
         cat("\nTabla de Formación Académica:\n")
@@ -306,6 +318,7 @@ server <- function(input, output, session) {
       Scielo_Data <- read_excel("Scielo_Data.xlsx")
       
       incProgress(0.2, detail = "Procesando y normalizando datos")
+      # Normalizamos produccion para quitar acentos y pasar a minúsculas
       produccion_norm <- produccion %>%
         mutate(Revista_norm = tolower(stri_trans_general(Revista, "Latin-ASCII")))
       
