@@ -1,6 +1,6 @@
 # app.R
 
-# 1) Forzar tnto LANG como LC_CTYPE a UTF-8
+# 1) Forzar tanto LANG como LC_CTYPE a UTF-8
 Sys.setenv(LANG = "es_PE.UTF-8")
 Sys.setlocale("LC_CTYPE", "es_PE.UTF-8")
 
@@ -469,16 +469,9 @@ server <- function(input, output, session) {
     req(analysisData())
     asesor <- analysisData()$asesor
     
-    # Renombrar columnas para que muestren tildes
-    if (!is.null(asesor) && ncol(asesor) > 0) {
-      asesor <- asesor %>%
-        rename(
-          "Universidad"               = "Universidad",
-          "Tesis"                     = "Tesis",
-          "Tesista(s)"                = "Tesista(s)",
-          "Repositorio"               = "Repositorio",
-          "Fecha Aceptación de Tesis" = "Fecha Aceptacion de Tesis"
-        )
+    # Renombrar columna "Fecha Aceptacion de Tesis" -> "Fecha Aceptación de Tesis"
+    if (!is.null(asesor) && "Fecha Aceptacion de Tesis" %in% names(asesor)) {
+      names(asesor)[names(asesor) == "Fecha Aceptacion de Tesis"] <- enc2utf8("Fecha Aceptación de Tesis")
     }
     asesor
   })
@@ -487,16 +480,10 @@ server <- function(input, output, session) {
     req(analysisData())
     formacion <- analysisData()$formacion
     
-    # Renombrar columnas para que muestren tildes
-    if (!is.null(formacion) && ncol(formacion) > 0) {
-      formacion <- formacion %>%
-        rename(
-          "Grado"               = "Grado",
-          "Título"              = "Titulo",
-          "Centro de Estudios"  = "Centro de Estudios",
-          "País de Estudios"    = "Pais de Estudios",
-          "Fuente"              = "Fuente"
-        )
+    # Renombrar "Titulo" -> "Título" ; "Pais de Estudios" -> "País de Estudios"
+    if (!is.null(formacion) && all(c("Titulo", "Pais de Estudios") %in% names(formacion))) {
+      names(formacion)[names(formacion) == "Titulo"] <- enc2utf8("Título")
+      names(formacion)[names(formacion) == "Pais de Estudios"] <- enc2utf8("País de Estudios")
     }
     formacion
   })
@@ -505,19 +492,11 @@ server <- function(input, output, session) {
     req(analysisData())
     produccion <- analysisData()$produccion
     
-    # Renombrar columnas para que muestren tildes
-    if (!is.null(produccion) && ncol(produccion) > 0) {
-      produccion <- produccion %>%
-        rename(
-          "Tipo Producción"              = "Tipo Produccion",
-          "Título"                       = "Titulo",
-          "Autor"                        = "Autor",
-          "Año de Producción"            = "Ano de Produccion",
-          "DOI"                          = "DOI",
-          "Revista"                      = "Revista",
-          "Fuente"                       = "Fuente",
-          "Cuartil de ScimagoJR o JCR*"  = "Cuartil de ScimagoJR o JCR*"
-        )
+    # Renombrar "Tipo Produccion" -> "Tipo Producción" ; "Titulo" -> "Título" ; "Ano de Produccion" -> "Año de Producción"
+    if (!is.null(produccion) && all(c("Tipo Produccion", "Titulo", "Ano de Produccion") %in% names(produccion))) {
+      names(produccion)[names(produccion) == "Tipo Produccion"] <- enc2utf8("Tipo Producción")
+      names(produccion)[names(produccion) == "Titulo"]           <- enc2utf8("Título")
+      names(produccion)[names(produccion) == "Ano de Produccion"] <- enc2utf8("Año de Producción")
     }
     produccion
   })
@@ -526,22 +505,40 @@ server <- function(input, output, session) {
     req(analysisData())
     dpi <- analysisData()$derechos_propiedad_intelectual
     
-    # Renombrar columnas para que muestren tildes (coincidiendo con nombres sin tildes)
-    if (!is.null(dpi) && ncol(dpi) > 0) {
-      dpi <- dpi %>%
-        rename(
-          "Título de la Propiedad Intelectual (PI)" = "Titulo de la Propiedad Intelectual (PI)",
-          "Tipo de PI"               = "Tipo de PI",
-          "Entidad donde se tramitó la PI" = "Entidad donde se tramito la PI",
-          "País"                     = "Pais",
-          "Nombre del propietario de la PI" = "Nombre del propietario de la PI",
-          "Trámite vía PCT"          = "Tramite via PCT",
-          "Estado de la patente"     = "Estado de la patente",
-          "Número de registro de la PI" = "Numero de registrode la PI",
-          "Rol de participación"     = "Rol de participacion",
-          "Participación en los derechos de la PI" = "Participacion en los derechos de la PI",
-          "Puntuación"               = "Puntuacion"
-        )
+    # Renombrar varias columnas:
+    # "Titulo de la Propiedad Intelectual (PI)" -> "Título de la Propiedad Intelectual (PI)"
+    # "Entidad donde se tramito la PI" -> "Entidad donde se tramitó la PI"
+    # "Pais" -> "País"
+    # "Tramite via PCT" -> "Trámite vía PCT"
+    # "Numero de registrode la PI" -> "Número de registro de la PI"
+    # "Rol de participacion" -> "Rol de participación"
+    # "Participacion en los derechos de la PI" -> "Participación en los derechos de la PI"
+    # "Puntuacion" -> "Puntuación"
+    if (!is.null(dpi)) {
+      if ("Titulo de la Propiedad Intelectual (PI)" %in% names(dpi)) {
+        names(dpi)[names(dpi) == "Titulo de la Propiedad Intelectual (PI)"] <- enc2utf8("Título de la Propiedad Intelectual (PI)")
+      }
+      if ("Entidad donde se tramito la PI" %in% names(dpi)) {
+        names(dpi)[names(dpi) == "Entidad donde se tramito la PI"] <- enc2utf8("Entidad donde se tramitó la PI")
+      }
+      if ("Pais" %in% names(dpi)) {
+        names(dpi)[names(dpi) == "Pais"] <- enc2utf8("País")
+      }
+      if ("Tramite via PCT" %in% names(dpi)) {
+        names(dpi)[names(dpi) == "Tramite via PCT"] <- enc2utf8("Trámite vía PCT")
+      }
+      if ("Numero de registrode la PI" %in% names(dpi)) {
+        names(dpi)[names(dpi) == "Numero de registrode la PI"] <- enc2utf8("Número de registro de la PI")
+      }
+      if ("Rol de participacion" %in% names(dpi)) {
+        names(dpi)[names(dpi) == "Rol de participacion"] <- enc2utf8("Rol de participación")
+      }
+      if ("Participacion en los derechos de la PI" %in% names(dpi)) {
+        names(dpi)[names(dpi) == "Participacion en los derechos de la PI"] <- enc2utf8("Participación en los derechos de la PI")
+      }
+      if ("Puntuacion" %in% names(dpi)) {
+        names(dpi)[names(dpi) == "Puntuacion"] <- enc2utf8("Puntuación")
+      }
     }
     dpi
   })
@@ -551,18 +548,22 @@ server <- function(input, output, session) {
     req(analysisData())
     df <- analysisData()$df_final
     
-    # Antes de mostrar, renombrar columnas para restaurar tildes
-    if (!is.null(df) && ncol(df) > 0) {
-      df <- df %>%
-        rename(
-          "Revista"                = "Revista_norm",
-          "Año de Publicación"     = "Ano de Produccion",
-          "Título"                 = "Titulo",
-          "Cuartil de ScimagoJR o JCR*" = "Cuartil de ScimagoJR o JCR*",
-          "Cuartil"                = "Cuartil",
-          "Valor"                  = "Value"
-        )
+    # Renombrar antes de mostrar:
+    # "Revista_norm" -> "Revista"
+    # "Ano de Produccion" -> "Año de Publicación"
+    # "Titulo" -> "Título"
+    if (!is.null(df)) {
+      if ("Revista_norm" %in% names(df)) {
+        names(df)[names(df) == "Revista_norm"] <- enc2utf8("Revista")
+      }
+      if ("Ano de Produccion" %in% names(df)) {
+        names(df)[names(df) == "Ano de Produccion"] <- enc2utf8("Año de Publicación")
+      }
+      if ("Titulo" %in% names(df)) {
+        names(df)[names(df) == "Titulo"] <- enc2utf8("Título")
+      }
     }
+    
     DT::datatable(df, options = list(pageLength = 10, autoWidth = TRUE))
   })
   
