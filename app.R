@@ -1,5 +1,7 @@
 # app.R
 
+Sys.setenv(LANG = "es_PE.UTF-8")
+
 # Verificar si devtools está instalado y cargarlos
 if (!require("devtools", quietly = TRUE)) {
   install.packages("devtools")
