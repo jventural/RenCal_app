@@ -35,6 +35,43 @@ library(httr2)
 library(dplyr)  # Para mutate, across, etc.
 
 
+# Función extraer_tabla() modificada para quitar tildes
+extraer_tabla <- function(page, texto_seccion) {
+  tryCatch({
+    # 1) Extraer la tabla cruda según el texto_seccion
+    raw_table <- page %>% 
+      html_node(xpath = paste0(
+        "//*[contains(text(), '", texto_seccion, "')]/following::table[1]"
+      )) %>% 
+      html_table(fill = TRUE)
+    
+    if (!is.null(raw_table) && nrow(raw_table) > 0) {
+      # 2) La primera fila son nombres de columna; se los asignamos
+      colnames(raw_table) <- as.character(raw_table[1, ])
+      raw_table <- raw_table[-1, ]
+      
+      # 3) Quitar tildes (acentos) de los nombres de columna
+      colnames(raw_table) <- stringi::stri_trans_general(
+        colnames(raw_table),
+        "Latin-ASCII"
+      )
+      
+      # 4) Quitar tildes de cada celda de tipo carácter
+      raw_table <- raw_table %>%
+        mutate(across(
+          where(is.character),
+          ~ stringi::stri_trans_general(.x, "Latin-ASCII")
+        ))
+    }
+    
+    raw_table
+  }, error = function(e) {
+    # Si no se encuentra la tabla, devolvemos un data.frame con mensaje
+    data.frame(Mensaje = paste0("No se encontró la tabla para: ", texto_seccion))
+  })
+}
+
+
 # Interfaz de usuario con shinydashboard
 ui <- dashboardPage(
   dashboardHeader(title = "RenCal", titleWidth = 300),
@@ -90,9 +127,9 @@ ui <- dashboardPage(
                   actionButton("run", "Ejecutar Análisis"),
                   br(), br(),
                   tabsetPanel(
-                    tabPanel("Asesoría", tableOutput("asesor_table")),
-                    tabPanel("Formación Académica", tableOutput("formacion_table")),
-                    tabPanel("Producción científica", tableOutput("produccion_table")),
+                    tabPanel("Asesoria", tableOutput("asesor_table")),
+                    tabPanel("Formacion Academica", tableOutput("formacion_table")),
+                    tabPanel("Produccion cientifica", tableOutput("produccion_table")),
                     tabPanel("Derechos de Propiedad Intelectual", tableOutput("dpi_table"))
                   )
               )
@@ -103,7 +140,7 @@ ui <- dashboardPage(
               box(width = 12, title = "Resumen de Publicaciones", status = "primary", solidHeader = TRUE,
                   DT::dataTableOutput("df_final_table"),
                   br(),
-                  h4("Puntaje total de Artículos Científicos:"),
+                  h4("Puntaje total de Articulos Cientificos:"),
                   verbatimTextOutput("total_valor")
               )
       ),
@@ -113,11 +150,11 @@ ui <- dashboardPage(
               box(width = 12, title = "Cálculo de Puntajes RENACYT", status = "primary", solidHeader = TRUE,
                   fluidRow(
                     column(6,
-                           h4("Grado Académico (Max. 10 puntos)"),
+                           h4("Grado Academico (Max. 10 puntos)"),
                            verbatimTextOutput("grado_academico")
                     ),
                     column(6,
-                           h4("Artículos Científicos"),
+                           h4("Articulos Cientificos"),
                            verbatimTextOutput("articulos_cientificos")
                     )
                   ),
@@ -128,19 +165,19 @@ ui <- dashboardPage(
                     ),
                     column(6,
                            numericInput("libros_capitulos", 
-                                        "Libros y Capítulos (Max. 10 puntos)", 
+                                        "Libros y Capitulos (Max. 10 puntos)", 
                                         value = 0, min = 0, max = 10, step = 1)
                     )
                   ),
                   fluidRow(
                     column(6,
                            selectInput("indice_h", 
-                                       "Índice H (>=10)", 
-                                       choices = c("No", "Sí"), 
+                                       "Indice H (>=10)", 
+                                       choices = c("No", "Si"), 
                                        selected = "No")
                     ),
                     column(6,
-                           h4("Asesorías de tesis (Max. 10 puntos)"),
+                           h4("Asesorias de tesis (Max. 10 puntos)"),
                            verbatimTextOutput("asesoria_tesis")
                     )
                   ),
@@ -154,7 +191,7 @@ ui <- dashboardPage(
                            )
                     ),
                     column(6,
-                           h4("Calificación"),
+                           h4("Calificacion"),
                            tags$div(
                              style = "font-size: 20px; font-weight: bold; color: #3c8dbc;",
                              textOutput("renacyt_calificacion")
@@ -187,7 +224,7 @@ server <- function(input, output, session) {
       contentType = 'image/png',
       width = 950,
       height = 750,
-      alt = "Anexo Nº 1 RENACYT"
+      alt = "Anexo N  1 RENACYT"
     )
   }, deleteFile = FALSE)
   
@@ -200,59 +237,43 @@ server <- function(input, output, session) {
   Getcalificacion <- function(value = 0, IndiceH = "No", prod_total = 0) {
     # Verificar que la producción total tenga al menos 6 puntos
     if (prod_total < 6) {
-      "No califica: no tiene 6 puntos en producción total"
+      "No califica: no tiene 6 puntos en produccion total"
     } else if (value == 0) {
-      "No califica: Requiere al menos un ítem en Producción"
+      "No califica: Requiere al menos un item en Produccion"
     } else if (value == 1) {
-      "No califica: Estudiantes requieren 9 en producción"
+      "No califica: Estudiantes requieren 9 en produccion"
     } else if (value > 1 && value < 6) {
-      "No califica: Requiere al menos 6 en producción"
+      "No califica: Requiere al menos 6 en produccion"
     } else if (value < 10) {
       "No califica: Requiere al menos 10 en puntaje total"
     } else if (value <= 24) {
-      "Sí califica: Nivel VII"
+      "Si califica: Nivel VII"
     } else if (value <= 34) {
-      "Sí califica: Nivel VI"
+      "Si califica: Nivel VI"
     } else if (value <= 49) {
-      "Sí califica: Nivel V"
+      "Si califica: Nivel V"
     } else if (value <= 69) {
-      "Sí califica: Nivel IV"
+      "Si califica: Nivel IV"
     } else if (value <= 99) {
-      "Sí califica: Nivel III"
+      "Si califica: Nivel III"
     } else if (value <= 159) {
-      "Sí califica: Nivel II"
+      "Si califica: Nivel II"
     } else if (value <= 199) {
-      "Sí califica: Nivel I"
-    } else if (IndiceH == "Sí") {
+      "Si califica: Nivel I"
+    } else if (IndiceH == "Si") {
       "Investigador Distinguido"
     } else {
-      "Sí califica: Nivel I"
+      "Si califica: Nivel I"
     }
   }
   
-  # Función para extraer una tabla desde una sección del sitio
-  extraer_tabla <- function(page, texto_seccion) {
-    tryCatch({
-      raw_table <- page %>% 
-        html_node(xpath = paste0("//*[contains(text(), '", texto_seccion, "')]/following::table[1]")) %>% 
-        html_table(fill = TRUE)
-      if (!is.null(raw_table) && nrow(raw_table) > 0) {
-        colnames(raw_table) <- as.character(raw_table[1, ])
-        raw_table <- raw_table[-1, ]
-      }
-      raw_table
-    }, error = function(e) {
-      data.frame(Mensaje = paste("No se encontró la tabla para:", texto_seccion))
-    })
-  }
-  
-  # Evento principal: al pulsar "Ejecutar Análisis" se muestra barra de progreso
+  # Evento principal: al pulsar "Ejecutar Analisis" se muestra barra de progreso
   analysisData <- eventReactive(input$run, {
-    withProgress(message = "Realizando análisis...", value = 0, {
+    withProgress(message = "Realizando analisis...", value = 0, {
       
       incProgress(0.1, detail = "Extrayendo datos de CTIVITAE")
       
-      # Usar URL ingresada o la URL por defecto si está vacío
+      # Usar URL ingresada o la URL por defecto si esta vacio
       url_invest <- ifelse(input$url_invest == "", 
                            "https://ctivitae.concytec.gob.pe/appDirectorioCTI/VerDatosInvestigador.do?id_investigador=74018", 
                            input$url_invest)
@@ -260,7 +281,7 @@ server <- function(input, output, session) {
       page <- tryCatch({
         read_html(url_invest)
       }, error = function(e) {
-        cat("Error al cargar la página:", e$message, "\n")
+        cat("Error al cargar la pagina:", e$message, "\n")
         return(NULL)
       })
       
@@ -271,7 +292,7 @@ server <- function(input, output, session) {
         derechos_propiedad_intelectual <- extraer_tabla(page, "Derechos de Propiedad Intelectual")
         
         # --------------------------------------------------------------------
-        # Aquí aplicamos la recodificación UTF-8 a la tabla de "producción_raw"
+        # Aquí aplicamos la recodificación UTF-8 a la tabla de “produccion_raw”
         # --------------------------------------------------------------------
         if (!is.null(produccion_raw) && nrow(produccion_raw) > 0) {
           produccion <- produccion_raw %>%
@@ -286,8 +307,8 @@ server <- function(input, output, session) {
         if (!is.null(derechos_propiedad_intelectual) && "Tipo de PI" %in% colnames(derechos_propiedad_intelectual)) {
           derechos_propiedad_intelectual <- derechos_propiedad_intelectual %>%
             mutate(Puntuacion = case_when(
-              `Tipo de PI` %in% c("Patente de invención", "Certificado de Obtentor", 
-                                  "Paquete tecnológico", "Registro de certificado de obtentor") ~ 3L,
+              `Tipo de PI` %in% c("Patente de invencion", "Certificado de Obtentor", 
+                                  "Paquete tecnologico", "Registro de certificado de obtentor") ~ 3L,
               `Tipo de PI` %in% c("Patente de modelo de utilidad", 
                                   "certificado de derecho de autor por software") ~ 1L,
               TRUE ~ 0L
@@ -297,16 +318,16 @@ server <- function(input, output, session) {
         }
         
         # Imprimir resultados en consola (ya recodificados)
-        cat("Tabla de Asesoría:\n")
+        cat("Tabla de Asesoria:\n")
         print(asesor)
-        cat("\nTabla de Formación Académica:\n")
+        cat("\nTabla de Formacion Academica:\n")
         print(formacion)
-        cat("\nTabla de Producción científica:\n")
+        cat("\nTabla de Produccion cientifica:\n")
         print(produccion)
         cat("\nTabla de Derechos de Propiedad Intelectual:\n")
         print(derechos_propiedad_intelectual)
       } else {
-        asesor <- data.frame(Mensaje = "No se pudo cargar la página.")
+        asesor <- data.frame(Mensaje = "No se pudo cargar la pagina.")
         formacion <- asesor
         produccion <- asesor
         derechos_propiedad_intelectual <- asesor
@@ -318,7 +339,7 @@ server <- function(input, output, session) {
       Scielo_Data <- read_excel("Scielo_Data.xlsx")
       
       incProgress(0.2, detail = "Procesando y normalizando datos")
-      # Normalizamos produccion para quitar acentos y pasar a minúsculas
+      # Normalizamos produccion para quitar acentos y pasar a minusculas
       produccion_norm <- produccion %>%
         mutate(Revista_norm = tolower(stri_trans_general(Revista, "Latin-ASCII")))
       
@@ -327,16 +348,16 @@ server <- function(input, output, session) {
       
       data_joined <- produccion_norm %>%
         left_join(df_scopus_norm, by = "Revista_norm", relationship = "many-to-many") %>% 
-        filter(!( `Tipo Producción` %in% c("DoctoralThesis", "MasterThesis", "Note", "Editorial", "Letter", "Journal - Meeting Abstract"))) %>% 
+        filter(!( `Tipo Produccion` %in% c("DoctoralThesis", "MasterThesis", "Note", "Editorial", "Letter", "Journal - Meeting Abstract"))) %>% 
         na.omit()
       
       resumen <- data_joined %>%
-        select(Revista_norm, `Año de Producción`, `Título`, `Cuartil de ScimagoJR o JCR*`, Cuartil, Valor) %>% 
-        distinct(`Título`, .keep_all = TRUE)
+        select(Revista_norm, `Ano de Produccion`, Titulo, `Cuartil de ScimagoJR o JCR*`, Cuartil, Valor) %>% 
+        distinct(Titulo, .keep_all = TRUE)
       
       data_joined2 <- resumen %>%
         mutate(
-          AnioProd = as.numeric(`Año de Producción`),
+          AnioProd = as.numeric(`Ano de Produccion`),
           join_year = case_when(
             AnioProd %in% c(2024, 2025) ~ 2024,
             TRUE                         ~ AnioProd
@@ -349,8 +370,8 @@ server <- function(input, output, session) {
         )
       
       df_final <- data_joined2 %>%
-        select(Revista_norm, `Año de Producción`, `Título`, `Cuartil de ScimagoJR o JCR*`, Cuartil.y, Valor.y) %>% 
-        distinct(`Título`, .keep_all = TRUE)
+        select(Revista_norm, `Ano de Produccion`, Titulo, `Cuartil de ScimagoJR o JCR*`, Cuartil.y, Valor.y) %>% 
+        distinct(Titulo, .keep_all = TRUE)
       
       Scielo_Data <- Scielo_Data %>%
         mutate(Revista = tolower(Revista),
@@ -379,7 +400,7 @@ server <- function(input, output, session) {
           str_detect(Grado, regex("MAGISTER", ignore_case = TRUE)) ~ 6,
           str_detect(Grado, regex("LICENCIADO", ignore_case = TRUE)) ~ 4,
           str_detect(Grado, regex("BACHILLER", ignore_case = TRUE)) ~ 2,
-          str_detect(Grado, regex("CONSTANCIA DE MATR[IÍ]CULA", ignore_case = TRUE)) ~ 1,
+          str_detect(Grado, regex("CONSTANCIA DE MATRICULA", ignore_case = TRUE)) ~ 1,
           TRUE ~ 0
         ))
       
@@ -392,7 +413,7 @@ server <- function(input, output, session) {
           score = case_when(
             str_detect(Tesis, regex("Doctorado", ignore_case = TRUE)) ~ 2,
             str_detect(Tesis, regex("Magister", ignore_case = TRUE)) ~ 1,
-            str_detect(Tesis, regex("Bachiller|Título Profesional|Licenciado / Título", ignore_case = TRUE)) ~ 0.5,
+            str_detect(Tesis, regex("Bachiller|Titulo Profesional|Licenciado / Titulo", ignore_case = TRUE)) ~ 0.5,
             TRUE ~ 0
           )
         ) %>%
@@ -400,7 +421,7 @@ server <- function(input, output, session) {
         mutate(total = if_else(total > 10, 10, total)) %>%
         pull(total)
       
-      incProgress(0.1, detail = "Finalizando análisis")
+      incProgress(0.1, detail = "Finalizando analisis")
       list(
         asesor            = asesor,
         formacion         = formacion,
@@ -408,9 +429,9 @@ server <- function(input, output, session) {
         derechos_propiedad_intelectual = derechos_propiedad_intelectual,
         registro_propiedad_calculado = registro_propiedad_calculado,
         df_final          = df_final,
-        total_suma_valor  = total_suma_valor,  # Artículos Científicos
-        puntaje_formacion = puntaje_final,    # Grado Académico
-        puntaje_asesor    = puntaje_total2    # Asesorías de tesis
+        total_suma_valor  = total_suma_valor,  # Articulos Cientificos
+        puntaje_formacion = puntaje_final,    # Grado Academico
+        puntaje_asesor    = puntaje_total2    # Asesorias de tesis
       )
     })
   })
@@ -427,7 +448,7 @@ server <- function(input, output, session) {
     )
   })
   
-  # Reactivo para calcular la producción total en los ítems: Artículos, Registro de PI y Libros y Capítulos
+  # Reactivo para calcular la producción total en los ítems: Articulos, Registro de PI y Libros y Capitulos
   production_total <- reactive({
     req(analysisData())
     analysisData()$total_suma_valor + analysisData()$registro_propiedad_calculado + input$libros_capitulos
