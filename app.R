@@ -14,7 +14,7 @@ if (!require("devtools", quietly = TRUE)) {
 # Lista de paquetes necesarios
 paquetes <- c(
   "shiny", "shinydashboard", "rvest", "tidyverse",
-  "readxl", "stringi", "DT", "curl", "httr2", "plotly", "openxlsx", "shinyjs"
+  "readxl", "stringi", "DT", "curl", "httr2", "plotly", "openxlsx"
 )
 
 # Bucle para instalar y cargar cada paquete si es necesario
@@ -38,44 +38,7 @@ library(httr2)
 library(dplyr)  # Para mutate, across, etc.
 library(plotly)
 library(openxlsx)
-library(shinyjs)
 
-# -------------------------------------------------------------
-# CONFIGURACIÓN DE CREDENCIALES
-# -------------------------------------------------------------
-# Las credenciales se obtienen de variables de entorno
-# En desarrollo local, crea un archivo .Renviron con:
-# RENCAL_USER1=tu_usuario
-# RENCAL_PASS1=tu_contraseña
-# RENCAL_USER2=otro_usuario  
-# RENCAL_PASS2=otra_contraseña
-
-get_valid_users <- function() {
-  # Obtener credenciales de variables de entorno
-  users <- list()
-  
-  # Buscar hasta 10 usuarios configurados
-  for (i in 1:10) {
-    user_var <- paste0("RENCAL_USER", i)
-    pass_var <- paste0("RENCAL_PASS", i)
-    
-    user <- Sys.getenv(user_var, unset = NA)
-    pass <- Sys.getenv(pass_var, unset = NA)
-    
-    if (!is.na(user) && !is.na(pass) && user != "" && pass != "") {
-      users[[user]] <- pass
-    }
-  }
-  
-  # Si no hay variables de entorno configuradas, la aplicación no puede funcionar
-  if (length(users) == 0) {
-    stop("Error: No se configuraron credenciales. Configure las variables de entorno RENCAL_USER1 y RENCAL_PASS1 antes de iniciar la aplicación.")
-  }
-  
-  return(users)
-}
-
-VALID_USERS <- get_valid_users()
 
 # -------------------------------------------------------------
 # Función extraer_tabla() modificada para quitar tildes
@@ -345,10 +308,7 @@ ui <- dashboardPage(
     )
   ),
   dashboardBody(
-    # Activar shinyjs
-    useShinyjs(),
-    
-    # CSS personalizado moderno (EXACTAMENTE EL MISMO)
+    # CSS personalizado moderno
     tags$head(
       tags$style(HTML("
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
@@ -638,72 +598,6 @@ ui <- dashboardPage(
           font-weight: 500;
         }
         
-        /* Modal de login personalizado */
-        .login-modal .modal-content {
-          border-radius: 20px;
-          border: none;
-          box-shadow: 0 20px 40px rgba(0,0,0,0.15);
-          overflow: hidden;
-        }
-        
-        .login-header {
-          background: var(--primary-gradient);
-          color: white;
-          padding: 30px;
-          text-align: center;
-          border: none;
-        }
-        
-        .login-body {
-          background: white;
-          padding: 40px;
-        }
-        
-        .login-form .form-group {
-          margin-bottom: 25px;
-        }
-        
-        .login-form .form-control {
-          padding: 15px 20px;
-          font-size: 1.1em;
-          border-radius: 10px;
-          border: 2px solid #e2e8f0;
-        }
-        
-        .login-form .form-control:focus {
-          border-color: var(--primary-color);
-          box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
-        }
-        
-        .login-btn {
-          width: 100%;
-          padding: 15px;
-          font-size: 1.1em;
-          border-radius: 10px;
-          background: var(--primary-gradient);
-          border: none;
-          color: white;
-          font-weight: 600;
-          text-transform: uppercase;
-          letter-spacing: 1px;
-          transition: all 0.3s ease;
-        }
-        
-        .login-btn:hover {
-          transform: translateY(-2px);
-          box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4);
-        }
-        
-        .login-error {
-          background: linear-gradient(135deg, #ff6b6b 0%, #ee5a52 100%);
-          color: white;
-          padding: 15px;
-          border-radius: 10px;
-          margin-bottom: 20px;
-          text-align: center;
-          font-weight: 500;
-        }
-        
         /* Responsive design */
         @media (max-width: 768px) {
           .comparative-card {
@@ -717,10 +611,6 @@ ui <- dashboardPage(
           
           .box-body {
             padding: 15px;
-          }
-          
-          .login-body {
-            padding: 30px 20px;
           }
         }
         
@@ -754,384 +644,334 @@ ui <- dashboardPage(
         }
       "))
     ),
-    
-    # Contenido principal - Login Panel
-    conditionalPanel(
-      condition = "!output.user_authenticated",
-      div(
-        style = "position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
-                 background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
-                 z-index: 9999; display: flex; align-items: center; justify-content: center;",
-        div(
-          style = "background: white; border-radius: 20px; box-shadow: 0 20px 40px rgba(0,0,0,0.15); 
-                   max-width: 450px; width: 90%; overflow: hidden;",
-          div(
-            class = "login-header",
-            h3("🔐 Acceso a RenCal", style = "margin: 0; font-weight: 600;"),
-            p("Calculadora RENACYT Inteligente", style = "margin: 10px 0 0 0; opacity: 0.9;")
-          ),
-          div(
-            class = "login-body",
-            uiOutput("login_error"),
-            div(
-              class = "login-form",
-              div(
-                class = "form-group",
-                tags$label("👤 Usuario:", `for` = "username"),
-                textInput("username", label = NULL, placeholder = "Ingrese su usuario")
-              ),
-              div(
-                class = "form-group",
-                tags$label("🔑 Contraseña:", `for` = "password"),
-                passwordInput("password", label = NULL, placeholder = "Ingrese su contraseña")
-              ),
-              div(
-                class = "form-group",
-                actionButton("login_btn", "Iniciar Sesión", class = "login-btn")
-              )
-            ),
-            div(
-              style = "text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #e2e8f0;",
-              p("🔐 Ingrese sus credenciales para acceder al sistema", 
-                style = "color: #64748b; font-style: italic; margin: 0;")
-            )
-          )
-        )
-      )
-    ),
-    
-    # Contenido principal (solo visible después del login)
-    conditionalPanel(
-      condition = "output.user_authenticated",
-      tabItems(
-        # -------------------------------------------------------------
-        # Pestaña: Información RENACYT
-        # -------------------------------------------------------------
-        tabItem(tabName = "info",
-                fluidRow(
-                  box(
-                    width = 12, title = "ℹ️ Acerca del programa",
-                    status = "primary", solidHeader = TRUE,
-                    div(style = "padding: 10px;",
-                        div(style = "background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%); 
-                                   border-radius: 15px; padding: 25px; margin-bottom: 20px;",
-                            div(style = "display: flex; align-items: center; gap: 20px; margin-bottom: 20px;",
-                                div(style = "width: 80px; height: 80px; background: linear-gradient(135deg, #667eea, #764ba2); 
-                                           border-radius: 20px; display: flex; align-items: center; justify-content: center;",
-                                    tags$span("🧮", style = "font-size: 3em;")
-                                ),
-                                div(
-                                  h3("RenCal", style = "color: #2d3748; font-weight: 700; margin: 0; font-size: 2.5em;"),
-                                  p("Calculadora RENACYT Inteligente", style = "color: #4a5568; font-size: 1.2em; margin: 5px 0 0 0;")
-                                )
-                            ),
-                            
-                            div(style = "display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px;",
-                                div(style = "background: white; border-radius: 12px; padding: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.05);",
-                                    div(style = "display: flex; align-items: center; gap: 12px; margin-bottom: 15px;",
-                                        div(style = "width: 40px; height: 40px; background: linear-gradient(135deg, #4ecdc4, #44a08d); 
-                                                   border-radius: 50%; display: flex; align-items: center; justify-content: center;",
-                                            tags$span("🎯", style = "font-size: 1.2em;")
-                                        ),
-                                        h5("Objetivo", style = "color: #2d3748; font-weight: 600; margin: 0;")
-                                    ),
-                                    p("Determina automáticamente los puntajes otorgados por el Registro Nacional Científico, Tecnológico y de Innovación Tecnológica (RENACYT).", 
-                                      style = "color: #4a5568; line-height: 1.6; margin: 0;")
-                                ),
-                                
-                                div(style = "background: white; border-radius: 12px; padding: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.05);",
-                                    div(style = "display: flex; align-items: center; gap: 12px; margin-bottom: 15px;",
-                                        div(style = "width: 40px; height: 40px; background: linear-gradient(135deg, #f093fb, #f5576c); 
-                                                   border-radius: 50%; display: flex; align-items: center; justify-content: center;",
-                                            tags$span("⚡", style = "font-size: 1.2em;")
-                                        ),
-                                        h5("Automatización", style = "color: #2d3748; font-weight: 600; margin: 0;")
-                                    ),
-                                    p("Facilita la obtención de la calificación de investigadores automatizando los criterios más complejos de evaluación.", 
-                                      style = "color: #4a5568; line-height: 1.6; margin: 0;")
-                                ),
-                                
-                                div(style = "background: white; border-radius: 12px; padding: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.05);",
-                                    div(style = "display: flex; align-items: center; gap: 12px; margin-bottom: 15px;",
-                                        div(style = "width: 40px; height: 40px; background: linear-gradient(135deg, #ffeaa7, #fab1a0); 
-                                                   border-radius: 50%; display: flex; align-items: center; justify-content: center;",
-                                            tags$span("🔬", style = "font-size: 1.2em;")
-                                        ),
-                                        h5("Metodología", style = "color: #2d3748; font-weight: 600; margin: 0;")
-                                    ),
-                                    p("Analiza el nombre de las revistas para detectar su cuartil y asignar puntajes, combinando información de Scimago y Scielo.", 
-                                      style = "color: #4a5568; line-height: 1.6; margin: 0;")
-                                ),
-                                
-                                div(style = "background: white; border-radius: 12px; padding: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.05);",
-                                    div(style = "display: flex; align-items: center; gap: 12px; margin-bottom: 15px;",
-                                        div(style = "width: 40px; height: 40px; background: linear-gradient(135deg, #667eea, #764ba2); 
-                                                   border-radius: 50%; display: flex; align-items: center; justify-content: center;",
-                                            tags$span("🌐", style = "font-size: 1.2em;")
-                                        ),
-                                        h5("Web Scraping", style = "color: #2d3748; font-weight: 600; margin: 0;")
-                                    ),
-                                    p("Extrae automáticamente información de las Fichas CTI Vitae de los investigadores mediante técnicas avanzadas de web scraping.", 
-                                      style = "color: #4a5568; line-height: 1.6; margin: 0;")
-                                )
-                            )
-                        )
-                    )
-                  )
-                ),
-                fluidRow(
-                  box(
-                    width = 12, title = "📋 Normativas RENACYT",
-                    status = "primary", solidHeader = TRUE,
-                    div(style = "padding: 10px;",
-                        div(style = "background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%); 
-                                   border-radius: 15px; padding: 20px; margin-bottom: 20px; text-align: center;",
-                            h5("📄 Documentación Oficial", style = "color: #01579b; font-weight: 600; margin-bottom: 15px;"),
-                            p("Para obtener la normativa completa, consulta el documento oficial:", style = "color: #0277bd; margin-bottom: 15px;"),
-                            a(href = "http://resoluciones.concytec.gob.pe/subidos/sintesis/RP-090-2021-CONCYTEC-P.pdf",
-                              "📖 Resolución de Presidencia Nº 090-2021-CONCYTEC-P", 
-                              target = "_blank",
-                              style = "background: linear-gradient(135deg, #1976d2, #1565c0); color: white; 
-                                     padding: 12px 25px; border-radius: 25px; text-decoration: none; 
-                                     font-weight: 600; display: inline-block; box-shadow: 0 4px 15px rgba(25, 118, 210, 0.3);")
-                        ),
-                        div(style = "text-align: center;",
-                            p("A continuación se muestra el Anexo Nº 1:", style = "color: #2d3748; font-weight: 500; margin-bottom: 20px;"),
-                            imageOutput("image1", height = "750px", width = "950px")
-                        )
-                    )
-                  )
-                )
-        ),
-        
-        # -------------------------------------------------------------
-        # Pestaña: Calculadora RENACYT (antes Análisis Comparativo)
-        # -------------------------------------------------------------
-        tabItem(tabName = "calculadora",
-                fluidRow(
-                  box(
-                    width = 12, title = "🧮 Calculadora RENACYT - Análisis Individual y Comparativo",
-                    status = "primary", solidHeader = TRUE,
-                    div(style = "padding: 10px;",
-                        div(style = "background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%); 
-                                       border-radius: 15px; padding: 25px; margin-bottom: 20px;",
-                            h4("🚀 ¡Bienvenido a RenCal!", style = "color: #2d3748; font-weight: 600; margin-bottom: 15px;"),
-                            p("Analiza de forma automática los puntajes RENACYT de investigadores peruanos.", 
-                              style = "color: #4a5568; font-size: 1.1em; margin-bottom: 15px;"),
-                            div(style = "display: flex; gap: 20px; flex-wrap: wrap;",
-                                div(style = "display: flex; align-items: center; gap: 10px;",
-                                    div(style = "width: 40px; height: 40px; background: linear-gradient(135deg, #667eea, #764ba2); 
-                                               border-radius: 50%; display: flex; align-items: center; justify-content: center;",
-                                        tags$span("1", style = "color: white; font-weight: bold;")),
-                                    div("Para análisis individual: ingresa una sola URL", style = "color: #2d3748; font-weight: 500;")
-                                ),
-                                div(style = "display: flex; align-items: center; gap: 10px;",
-                                    div(style = "width: 40px; height: 40px; background: linear-gradient(135deg, #4ecdc4, #44a08d); 
-                                               border-radius: 50%; display: flex; align-items: center; justify-content: center;",
-                                        tags$span("2", style = "color: white; font-weight: bold;")),
-                                    div("Para análisis comparativo: ingresa múltiples URLs (una por línea)", style = "color: #2d3748; font-weight: 500;")
-                                )
-                            )
-                        ),
-                        
-                        div(style = "background: white; border-radius: 15px; padding: 25px; box-shadow: 0 10px 25px rgba(0,0,0,0.1);",
-                            h5("📋 URLs de Investigadores CTIVITAE", style = "color: #2d3748; font-weight: 600; margin-bottom: 15px;"),
-                            textAreaInput(
-                              "urls_multiple", 
-                              label = NULL,
-                              value = "", 
-                              rows = 6, 
-                              placeholder = "https://ctivitae.concytec.gob.pe/appDirectorioCTI/VerDatosInvestigador.do?id_investigador=XXXXX"
-                            ),
-                            
-                            div(style = "text-align: center; margin-top: 20px;",
-                                actionButton("run_comparative", 
-                                             HTML("🔍 Ejecutar Análisis"), 
-                                             class = "btn btn-primary",
-                                             style = "font-size: 1.1em; padding: 15px 40px;")
-                            )
-                        )
-                    ),
-                    br(), br(),
-                    
-                    conditionalPanel(
-                      condition = "output.comparative_results_ready",
-                      tabsetPanel(
-                        tabPanel(HTML("📊 Resumen Comparativo"), 
-                                 DTOutput("comparative_summary_table"),
-                                 br(),
-                                 h4("📊 Estadísticas Generales", style = "color: #2d3748; font-weight: 600; margin-bottom: 25px;"),
-                                 fluidRow(
-                                   column(3,
-                                          div(class = "comparative-card",
-                                              style = "text-align: center;",
-                                              div(style = "font-size: 3em; margin-bottom: 10px;", "👥"),
-                                              div(class = "metric-value", textOutput("total_investigators")),
-                                              div(class = "metric-label", "Investigadores Analizados")
-                                          )
-                                   ),
-                                   column(3,
-                                          div(class = "comparative-card",
-                                              style = "text-align: center;",
-                                              div(style = "font-size: 3em; margin-bottom: 10px;", "📚"),
-                                              div(class = "metric-value", textOutput("avg_publications")),
-                                              div(class = "metric-label", "Promedio de Publicaciones")
-                                          )
-                                   ),
-                                   column(3,
-                                          div(class = "comparative-card",
-                                              style = "text-align: center;",
-                                              div(style = "font-size: 3em; margin-bottom: 10px;", "🏆"),
-                                              div(class = "metric-value", textOutput("top_score")),
-                                              div(class = "metric-label", "Puntaje Máximo")
-                                          )
-                                   ),
-                                   column(3,
-                                          div(class = "comparative-card",
-                                              style = "text-align: center;",
-                                              div(style = "font-size: 3em; margin-bottom: 10px;", "📈"),
-                                              div(class = "metric-value", textOutput("avg_score")),
-                                              div(class = "metric-label", "Puntaje Promedio")
-                                          )
-                                   )
-                                 )
-                        ),
-                        tabPanel(HTML("🏅 Calificación RENACYT"),
-                                 fluidRow(
-                                   box(
-                                     width = 12, title = "⚙️ Configuración de Puntajes Adicionales",
-                                     status = "info", solidHeader = TRUE,
-                                     div(style = "background: linear-gradient(135deg, #e0f2fe 0%, #b3e5fc 100%); 
-                                                border-radius: 10px; padding: 20px; margin-bottom: 15px;",
-                                         p("✨ Para cada investigador, configura los valores de Índice H y Libros/Capítulos para obtener la calificación RENACYT completa.", 
-                                           style = "color: #01579b; font-weight: 500; margin: 0;")
-                                     ),
-                                     uiOutput("renacyt_inputs_ui")
-                                   )
-                                 ),
-                                 fluidRow(
-                                   box(
-                                     width = 12, title = "🎯 Calificaciones RENACYT Comparativas",
-                                     status = "primary", solidHeader = TRUE,
-                                     DTOutput("renacyt_comparative_table"),
-                                     br(),
-                                     div(style = "text-align: center;",
-                                         actionButton("update_renacyt", 
-                                                      HTML("🔄 Actualizar Calificaciones"), 
-                                                      class = "btn btn-primary",
-                                                      style = "font-size: 1.1em; padding: 12px 30px;")
-                                     )
-                                   )
-                                 ),
-                                 fluidRow(
-                                   box(
-                                     width = 12, title = "📈 Gráfico de Calificaciones RENACYT",
-                                     status = "success", solidHeader = TRUE,
-                                     plotlyOutput("renacyt_levels_plot", height = "500px")
-                                   )
-                                 )
-                        ),
-                        tabPanel(HTML("📊 Gráfico Comparativo"), 
-                                 plotlyOutput("comparative_plot", height = "600px")
-                        ),
-                        tabPanel(HTML("🎯 Distribución por Cuartiles"), 
-                                 plotlyOutput("quartile_plot", height = "600px")
-                        ),
-                        tabPanel(HTML("👤 Detalles por Investigador"),
-                                 div(style = "background: white; border-radius: 15px; padding: 20px; margin-bottom: 20px;",
-                                     fluidRow(
-                                       column(8,
-                                              h5("🔍 Selecciona un investigador:", style = "color: #2d3748; font-weight: 600; margin-bottom: 10px;"),
-                                              selectInput("selected_researcher", 
-                                                          label = NULL,
-                                                          choices = NULL)
-                                       ),
-                                       column(4,
-                                              br(),
-                                              div(style = "text-align: center;",
-                                                  downloadButton("download_researcher", 
-                                                                 HTML("📁 Descargar Excel"), 
-                                                                 class = "btn btn-success",
-                                                                 style = "font-size: 1em; padding: 12px 25px;")
-                                              )
-                                       )
-                                     )
-                                 ),
-                                 DTOutput("researcher_detail_table")
-                        )
-                      )
-                    )
-                  )
-                )
-        ),
-        
-        # -------------------------------------------------------------
-        # Pestaña: Acerca del autor
-        # -------------------------------------------------------------
-        tabItem(tabName = "about",
+    tabItems(
+      # -------------------------------------------------------------
+      # Pestaña: Información RENACYT
+      # -------------------------------------------------------------
+      tabItem(tabName = "info",
+              fluidRow(
                 box(
-                  width = 12, title = "👨‍🔬 Acerca del autor",
+                  width = 12, title = "ℹ️ Acerca del programa",
                   status = "primary", solidHeader = TRUE,
                   div(style = "padding: 10px;",
                       div(style = "background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%); 
-                                 border-radius: 15px; padding: 30px; text-align: center;",
-                          div(style = "display: inline-block; width: 120px; height: 120px; 
-                                     background: linear-gradient(135deg, #667eea, #764ba2); 
-                                     border-radius: 50%; display: flex; align-items: center; 
-                                     justify-content: center; margin-bottom: 25px;",
-                              tags$span("👨‍🎓", style = "font-size: 4em;")
-                          ),
-                          
-                          h3("Dr. José Ventura-León", style = "color: #2d3748; font-weight: 700; margin-bottom: 10px;"),
-                          p("Doctor en Psicología | Magíster en Psicología Educativa", 
-                            style = "color: #4a5568; font-size: 1.2em; margin-bottom: 25px; font-weight: 500;"),
-                          
-                          div(style = "background: white; border-radius: 12px; padding: 25px; 
-                                     box-shadow: 0 10px 25px rgba(0,0,0,0.1); margin-bottom: 25px;",
-                              div(style = "display: flex; align-items: center; justify-content: center; gap: 15px; margin-bottom: 20px;",
-                                  div(style = "width: 50px; height: 50px; background: linear-gradient(135deg, #4ecdc4, #44a08d); 
-                                             border-radius: 50%; display: flex; align-items: center; justify-content: center;",
-                                      tags$span("🏢", style = "font-size: 1.5em;")
-                                  ),
-                                  h5("Universidad Privada del Norte (UPN)", style = "color: #2d3748; font-weight: 600; margin: 0;")
+                                 border-radius: 15px; padding: 25px; margin-bottom: 20px;",
+                          div(style = "display: flex; align-items: center; gap: 20px; margin-bottom: 20px;",
+                              div(style = "width: 80px; height: 80px; background: linear-gradient(135deg, #667eea, #764ba2); 
+                                         border-radius: 20px; display: flex; align-items: center; justify-content: center;",
+                                  tags$span("🧮", style = "font-size: 3em;")
                               ),
-                              p("Docente Investigador a tiempo completo, especializado en metodología de investigación y análisis estadístico aplicado a las ciencias sociales.", 
-                                style = "color: #4a5568; line-height: 1.6; margin: 0;")
-                          ),
-                          
-                          div(style = "display: flex; gap: 20px; justify-content: center; flex-wrap: wrap;",
-                              a(href = "https://joseventuraleon.com/", 
-                                target = "_blank",
-                                style = "background: linear-gradient(135deg, #667eea, #764ba2); color: white; 
-                                       padding: 15px 30px; border-radius: 25px; text-decoration: none; 
-                                       font-weight: 600; display: flex; align-items: center; gap: 10px;
-                                       box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3); 
-                                       transition: all 0.3s ease;",
-                                onmouseover = "this.style.transform='translateY(-2px)'; this.style.boxShadow='0 6px 20px rgba(102, 126, 234, 0.4)';",
-                                onmouseout = "this.style.transform='translateY(0)'; this.style.boxShadow='0 4px 15px rgba(102, 126, 234, 0.3)';",
-                                HTML("🌐 Sitio Web Personal")
-                              ),
-                              
-                              tags$a(href = "mailto:info@joseventuraleon.com",
-                                     style = "background: linear-gradient(135deg, #4ecdc4, #44a08d); color: white; 
-                                           padding: 15px 30px; border-radius: 25px; text-decoration: none; 
-                                           font-weight: 600; display: flex; align-items: center; gap: 10px;
-                                           box-shadow: 0 4px 15px rgba(78, 205, 196, 0.3);
-                                           transition: all 0.3s ease;",
-                                     onmouseover = "this.style.transform='translateY(-2px)'; this.style.boxShadow='0 6px 20px rgba(78, 205, 196, 0.4)';",
-                                     onmouseout = "this.style.transform='translateY(0)'; this.style.boxShadow='0 4px 15px rgba(78, 205, 196, 0.3)';",
-                                     HTML("📧 Contacto")
+                              div(
+                                h3("RenCal", style = "color: #2d3748; font-weight: 700; margin: 0; font-size: 2.5em;"),
+                                p("Calculadora RENACYT Inteligente", style = "color: #4a5568; font-size: 1.2em; margin: 5px 0 0 0;")
                               )
                           ),
                           
-                          div(style = "margin-top: 30px; padding-top: 25px; border-top: 2px solid #e2e8f0;",
-                              p("💡 Para consultas, reportar errores o sugerencias de mejora", 
-                                style = "color: #64748b; font-style: italic; margin: 0;")
+                          div(style = "display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px;",
+                              div(style = "background: white; border-radius: 12px; padding: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.05);",
+                                  div(style = "display: flex; align-items: center; gap: 12px; margin-bottom: 15px;",
+                                      div(style = "width: 40px; height: 40px; background: linear-gradient(135deg, #4ecdc4, #44a08d); 
+                                                 border-radius: 50%; display: flex; align-items: center; justify-content: center;",
+                                          tags$span("🎯", style = "font-size: 1.2em;")
+                                      ),
+                                      h5("Objetivo", style = "color: #2d3748; font-weight: 600; margin: 0;")
+                                  ),
+                                  p("Determina automáticamente los puntajes otorgados por el Registro Nacional Científico, Tecnológico y de Innovación Tecnológica (RENACYT).", 
+                                    style = "color: #4a5568; line-height: 1.6; margin: 0;")
+                              ),
+                              
+                              div(style = "background: white; border-radius: 12px; padding: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.05);",
+                                  div(style = "display: flex; align-items: center; gap: 12px; margin-bottom: 15px;",
+                                      div(style = "width: 40px; height: 40px; background: linear-gradient(135deg, #f093fb, #f5576c); 
+                                                 border-radius: 50%; display: flex; align-items: center; justify-content: center;",
+                                          tags$span("⚡", style = "font-size: 1.2em;")
+                                      ),
+                                      h5("Automatización", style = "color: #2d3748; font-weight: 600; margin: 0;")
+                                  ),
+                                  p("Facilita la obtención de la calificación de investigadores automatizando los criterios más complejos de evaluación.", 
+                                    style = "color: #4a5568; line-height: 1.6; margin: 0;")
+                              ),
+                              
+                              div(style = "background: white; border-radius: 12px; padding: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.05);",
+                                  div(style = "display: flex; align-items: center; gap: 12px; margin-bottom: 15px;",
+                                      div(style = "width: 40px; height: 40px; background: linear-gradient(135deg, #ffeaa7, #fab1a0); 
+                                                 border-radius: 50%; display: flex; align-items: center; justify-content: center;",
+                                          tags$span("🔬", style = "font-size: 1.2em;")
+                                      ),
+                                      h5("Metodología", style = "color: #2d3748; font-weight: 600; margin: 0;")
+                                  ),
+                                  p("Analiza el nombre de las revistas para detectar su cuartil y asignar puntajes, combinando información de Scimago y Scielo.", 
+                                    style = "color: #4a5568; line-height: 1.6; margin: 0;")
+                              ),
+                              
+                              div(style = "background: white; border-radius: 12px; padding: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.05);",
+                                  div(style = "display: flex; align-items: center; gap: 12px; margin-bottom: 15px;",
+                                      div(style = "width: 40px; height: 40px; background: linear-gradient(135deg, #667eea, #764ba2); 
+                                                 border-radius: 50%; display: flex; align-items: center; justify-content: center;",
+                                          tags$span("🌐", style = "font-size: 1.2em;")
+                                      ),
+                                      h5("Web Scraping", style = "color: #2d3748; font-weight: 600; margin: 0;")
+                                  ),
+                                  p("Extrae automáticamente información de las Fichas CTI Vitae de los investigadores mediante técnicas avanzadas de web scraping.", 
+                                    style = "color: #4a5568; line-height: 1.6; margin: 0;")
+                              )
                           )
                       )
                   )
                 )
-        )
+              ),
+              fluidRow(
+                box(
+                  width = 12, title = "📋 Normativas RENACYT",
+                  status = "primary", solidHeader = TRUE,
+                  div(style = "padding: 10px;",
+                      div(style = "background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%); 
+                                 border-radius: 15px; padding: 20px; margin-bottom: 20px; text-align: center;",
+                          h5("📄 Documentación Oficial", style = "color: #01579b; font-weight: 600; margin-bottom: 15px;"),
+                          p("Para obtener la normativa completa, consulta el documento oficial:", style = "color: #0277bd; margin-bottom: 15px;"),
+                          a(href = "http://resoluciones.concytec.gob.pe/subidos/sintesis/RP-090-2021-CONCYTEC-P.pdf",
+                            "📖 Resolución de Presidencia Nº 090-2021-CONCYTEC-P", 
+                            target = "_blank",
+                            style = "background: linear-gradient(135deg, #1976d2, #1565c0); color: white; 
+                                   padding: 12px 25px; border-radius: 25px; text-decoration: none; 
+                                   font-weight: 600; display: inline-block; box-shadow: 0 4px 15px rgba(25, 118, 210, 0.3);")
+                      ),
+                      div(style = "text-align: center;",
+                          p("A continuación se muestra el Anexo Nº 1:", style = "color: #2d3748; font-weight: 500; margin-bottom: 20px;"),
+                          imageOutput("image1", height = "750px", width = "950px")
+                      )
+                  )
+                )
+              )
+      ),
+      
+      # -------------------------------------------------------------
+      # Pestaña: Calculadora RENACYT (antes Análisis Comparativo)
+      # -------------------------------------------------------------
+      tabItem(tabName = "calculadora",
+              fluidRow(
+                box(
+                  width = 12, title = "🧮 Calculadora RENACYT - Análisis Individual y Comparativo",
+                  status = "primary", solidHeader = TRUE,
+                  div(style = "padding: 10px;",
+                      div(style = "background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%); 
+                                   border-radius: 15px; padding: 25px; margin-bottom: 20px;",
+                          h4("🚀 ¡Bienvenido a RenCal!", style = "color: #2d3748; font-weight: 600; margin-bottom: 15px;"),
+                          p("Analiza de forma automática los puntajes RENACYT de investigadores peruanos.", 
+                            style = "color: #4a5568; font-size: 1.1em; margin-bottom: 15px;"),
+                          div(style = "display: flex; gap: 20px; flex-wrap: wrap;",
+                              div(style = "display: flex; align-items: center; gap: 10px;",
+                                  div(style = "width: 40px; height: 40px; background: linear-gradient(135deg, #667eea, #764ba2); 
+                                             border-radius: 50%; display: flex; align-items: center; justify-content: center;",
+                                      tags$span("1", style = "color: white; font-weight: bold;")),
+                                  div("Para análisis individual: ingresa una sola URL", style = "color: #2d3748; font-weight: 500;")
+                              ),
+                              div(style = "display: flex; align-items: center; gap: 10px;",
+                                  div(style = "width: 40px; height: 40px; background: linear-gradient(135deg, #4ecdc4, #44a08d); 
+                                             border-radius: 50%; display: flex; align-items: center; justify-content: center;",
+                                      tags$span("2", style = "color: white; font-weight: bold;")),
+                                  div("Para análisis comparativo: ingresa múltiples URLs (una por línea)", style = "color: #2d3748; font-weight: 500;")
+                              )
+                          )
+                      ),
+                      
+                      div(style = "background: white; border-radius: 15px; padding: 25px; box-shadow: 0 10px 25px rgba(0,0,0,0.1);",
+                          h5("📋 URLs de Investigadores CTIVITAE", style = "color: #2d3748; font-weight: 600; margin-bottom: 15px;"),
+                          textAreaInput(
+                            "urls_multiple", 
+                            label = NULL,
+                            value = "", 
+                            rows = 6, 
+                            placeholder = "https://ctivitae.concytec.gob.pe/appDirectorioCTI/VerDatosInvestigador.do?id_investigador=XXXXX"
+                          ),
+                          
+                          div(style = "text-align: center; margin-top: 20px;",
+                              actionButton("run_comparative", 
+                                           HTML("🔍 Ejecutar Análisis"), 
+                                           class = "btn btn-primary",
+                                           style = "font-size: 1.1em; padding: 15px 40px;")
+                          )
+                      )
+                  ),
+                  br(), br(),
+                  
+                  conditionalPanel(
+                    condition = "output.comparative_results_ready",
+                    tabsetPanel(
+                      tabPanel(HTML("📊 Resumen Comparativo"), 
+                               DTOutput("comparative_summary_table"),
+                               br(),
+                               h4("📊 Estadísticas Generales", style = "color: #2d3748; font-weight: 600; margin-bottom: 25px;"),
+                               fluidRow(
+                                 column(3,
+                                        div(class = "comparative-card",
+                                            style = "text-align: center;",
+                                            div(style = "font-size: 3em; margin-bottom: 10px;", "👥"),
+                                            div(class = "metric-value", textOutput("total_investigators")),
+                                            div(class = "metric-label", "Investigadores Analizados")
+                                        )
+                                 ),
+                                 column(3,
+                                        div(class = "comparative-card",
+                                            style = "text-align: center;",
+                                            div(style = "font-size: 3em; margin-bottom: 10px;", "📚"),
+                                            div(class = "metric-value", textOutput("avg_publications")),
+                                            div(class = "metric-label", "Promedio de Publicaciones")
+                                        )
+                                 ),
+                                 column(3,
+                                        div(class = "comparative-card",
+                                            style = "text-align: center;",
+                                            div(style = "font-size: 3em; margin-bottom: 10px;", "🏆"),
+                                            div(class = "metric-value", textOutput("top_score")),
+                                            div(class = "metric-label", "Puntaje Máximo")
+                                        )
+                                 ),
+                                 column(3,
+                                        div(class = "comparative-card",
+                                            style = "text-align: center;",
+                                            div(style = "font-size: 3em; margin-bottom: 10px;", "📈"),
+                                            div(class = "metric-value", textOutput("avg_score")),
+                                            div(class = "metric-label", "Puntaje Promedio")
+                                        )
+                                 )
+                               )
+                      ),
+                      tabPanel(HTML("🏅 Calificación RENACYT"),
+                               fluidRow(
+                                 box(
+                                   width = 12, title = "⚙️ Configuración de Puntajes Adicionales",
+                                   status = "info", solidHeader = TRUE,
+                                   div(style = "background: linear-gradient(135deg, #e0f2fe 0%, #b3e5fc 100%); 
+                                              border-radius: 10px; padding: 20px; margin-bottom: 15px;",
+                                       p("✨ Para cada investigador, configura los valores de Índice H y Libros/Capítulos para obtener la calificación RENACYT completa.", 
+                                         style = "color: #01579b; font-weight: 500; margin: 0;")
+                                   ),
+                                   uiOutput("renacyt_inputs_ui")
+                                 )
+                               ),
+                               fluidRow(
+                                 box(
+                                   width = 12, title = "🎯 Calificaciones RENACYT Comparativas",
+                                   status = "primary", solidHeader = TRUE,
+                                   DTOutput("renacyt_comparative_table"),
+                                   br(),
+                                   div(style = "text-align: center;",
+                                       actionButton("update_renacyt", 
+                                                    HTML("🔄 Actualizar Calificaciones"), 
+                                                    class = "btn btn-primary",
+                                                    style = "font-size: 1.1em; padding: 12px 30px;")
+                                   )
+                                 )
+                               ),
+                               fluidRow(
+                                 box(
+                                   width = 12, title = "📈 Gráfico de Calificaciones RENACYT",
+                                   status = "success", solidHeader = TRUE,
+                                   plotlyOutput("renacyt_levels_plot", height = "500px")
+                                 )
+                               )
+                      ),
+                      tabPanel(HTML("📊 Gráfico Comparativo"), 
+                               plotlyOutput("comparative_plot", height = "600px")
+                      ),
+                      tabPanel(HTML("🎯 Distribución por Cuartiles"), 
+                               plotlyOutput("quartile_plot", height = "600px")
+                      ),
+                      tabPanel(HTML("👤 Detalles por Investigador"),
+                               div(style = "background: white; border-radius: 15px; padding: 20px; margin-bottom: 20px;",
+                                   fluidRow(
+                                     column(8,
+                                            h5("🔍 Selecciona un investigador:", style = "color: #2d3748; font-weight: 600; margin-bottom: 10px;"),
+                                            selectInput("selected_researcher", 
+                                                        label = NULL,
+                                                        choices = NULL)
+                                     ),
+                                     column(4,
+                                            br(),
+                                            div(style = "text-align: center;",
+                                                downloadButton("download_researcher", 
+                                                               HTML("📁 Descargar Excel"), 
+                                                               class = "btn btn-success",
+                                                               style = "font-size: 1em; padding: 12px 25px;")
+                                            )
+                                     )
+                                   )
+                               ),
+                               DTOutput("researcher_detail_table")
+                      )
+                    )
+                  )
+                )
+              )
+      ),
+      
+      # -------------------------------------------------------------
+      # Pestaña: Acerca del autor
+      # -------------------------------------------------------------
+      tabItem(tabName = "about",
+              box(
+                width = 12, title = "👨‍🔬 Acerca del autor",
+                status = "primary", solidHeader = TRUE,
+                div(style = "padding: 10px;",
+                    div(style = "background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%); 
+                               border-radius: 15px; padding: 30px; text-align: center;",
+                        div(style = "display: inline-block; width: 120px; height: 120px; 
+                                   background: linear-gradient(135deg, #667eea, #764ba2); 
+                                   border-radius: 50%; display: flex; align-items: center; 
+                                   justify-content: center; margin-bottom: 25px;",
+                            tags$span("👨‍🎓", style = "font-size: 4em;")
+                        ),
+                        
+                        h3("Dr. José Ventura-León", style = "color: #2d3748; font-weight: 700; margin-bottom: 10px;"),
+                        p("Doctor en Psicología | Magíster en Psicología Educativa", 
+                          style = "color: #4a5568; font-size: 1.2em; margin-bottom: 25px; font-weight: 500;"),
+                        
+                        div(style = "background: white; border-radius: 12px; padding: 25px; 
+                                   box-shadow: 0 10px 25px rgba(0,0,0,0.1); margin-bottom: 25px;",
+                            div(style = "display: flex; align-items: center; justify-content: center; gap: 15px; margin-bottom: 20px;",
+                                div(style = "width: 50px; height: 50px; background: linear-gradient(135deg, #4ecdc4, #44a08d); 
+                                           border-radius: 50%; display: flex; align-items: center; justify-content: center;",
+                                    tags$span("🏢", style = "font-size: 1.5em;")
+                                ),
+                                h5("Universidad Privada del Norte (UPN)", style = "color: #2d3748; font-weight: 600; margin: 0;")
+                            ),
+                            p("Docente Investigador a tiempo completo, especializado en metodología de investigación y análisis estadístico aplicado a las ciencias sociales.", 
+                              style = "color: #4a5568; line-height: 1.6; margin: 0;")
+                        ),
+                        
+                        div(style = "display: flex; gap: 20px; justify-content: center; flex-wrap: wrap;",
+                            a(href = "https://joseventuraleon.com/", 
+                              target = "_blank",
+                              style = "background: linear-gradient(135deg, #667eea, #764ba2); color: white; 
+                                     padding: 15px 30px; border-radius: 25px; text-decoration: none; 
+                                     font-weight: 600; display: flex; align-items: center; gap: 10px;
+                                     box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3); 
+                                     transition: all 0.3s ease;",
+                              onmouseover = "this.style.transform='translateY(-2px)'; this.style.boxShadow='0 6px 20px rgba(102, 126, 234, 0.4)';",
+                              onmouseout = "this.style.transform='translateY(0)'; this.style.boxShadow='0 4px 15px rgba(102, 126, 234, 0.3)';",
+                              HTML("🌐 Sitio Web Personal")
+                            ),
+                            
+                            tags$a(href = "mailto:info@joseventuraleon.com",
+                                   style = "background: linear-gradient(135deg, #4ecdc4, #44a08d); color: white; 
+                                         padding: 15px 30px; border-radius: 25px; text-decoration: none; 
+                                         font-weight: 600; display: flex; align-items: center; gap: 10px;
+                                         box-shadow: 0 4px 15px rgba(78, 205, 196, 0.3);
+                                         transition: all 0.3s ease;",
+                                   onmouseover = "this.style.transform='translateY(-2px)'; this.style.boxShadow='0 6px 20px rgba(78, 205, 196, 0.4)';",
+                                   onmouseout = "this.style.transform='translateY(0)'; this.style.boxShadow='0 4px 15px rgba(78, 205, 196, 0.3)';",
+                                   HTML("📧 Contacto")
+                            )
+                        ),
+                        
+                        div(style = "margin-top: 30px; padding-top: 25px; border-top: 2px solid #e2e8f0;",
+                            p("💡 Para consultas, reportar errores o sugerencias de mejora", 
+                              style = "color: #64748b; font-style: italic; margin: 0;")
+                        )
+                    )
+                )
+              )
       )
     )
   )
@@ -1142,55 +982,6 @@ ui <- dashboardPage(
 # LÓGICA del servidor
 # -------------------------------------------------------------
 server <- function(input, output, session) {
-  
-  # Variable reactiva para el estado de autenticación
-  user_authenticated <- reactiveVal(FALSE)
-  
-  # Validar credenciales
-  observeEvent(input$login_btn, {
-    username <- input$username
-    password <- input$password
-    
-    if (!is.null(username) && !is.null(password) && 
-        username %in% names(VALID_USERS) && 
-        VALID_USERS[[username]] == password) {
-      
-      user_authenticated(TRUE)
-      
-      # Determinar el entorno
-      env_type <- if(Sys.getenv("RENCAL_USER1") != "") "producción" else "desarrollo"
-      
-      showNotification(
-        paste("¡Bienvenido,", username, "! Sesión iniciada en modo", env_type),
-        type = "message",
-        duration = 3
-      )
-      
-      # Limpiar campos de login
-      updateTextInput(session, "username", value = "")
-      updateTextInput(session, "password", value = "")
-      
-    } else {
-      # Mostrar error de autenticación
-      showNotification(
-        "❌ Usuario o contraseña incorrectos. Intenta nuevamente.",
-        type = "warning",
-        duration = 4
-      )
-    }
-  })
-  
-  # Output para mostrar errores de login
-  output$login_error <- renderUI({
-    # Este output se puede usar para mostrar errores personalizados si es necesario
-    NULL
-  })
-  
-  # Output para controlar la visibilidad del contenido principal
-  output$user_authenticated <- reactive({
-    user_authenticated()
-  })
-  outputOptions(output, "user_authenticated", suspendWhenHidden = FALSE)
   
   # Render de la imagen en Información RENACYT
   output$image1 <- renderImage({
@@ -1246,7 +1037,7 @@ server <- function(input, output, session) {
   # ANÁLISIS COMPARATIVO - FUNCIONALIDAD PRINCIPAL
   # -------------------------------------------------------------
   comparativeData <- eventReactive(input$run_comparative, {
-    req(input$urls_multiple, user_authenticated())
+    req(input$urls_multiple)
     
     urls <- str_split(input$urls_multiple, "\n")[[1]] %>%
       str_trim() %>%
@@ -1294,7 +1085,7 @@ server <- function(input, output, session) {
   
   # UI dinámica para inputs RENACYT
   output$renacyt_inputs_ui <- renderUI({
-    req(comparativeData(), user_authenticated())
+    req(comparativeData())
     results <- comparativeData()
     successful_results <- results[sapply(results, function(x) x$success)]
     
@@ -1380,7 +1171,7 @@ server <- function(input, output, session) {
   
   # Tabla de calificaciones RENACYT
   output$renacyt_comparative_table <- renderDT({
-    req(comparativeData(), user_authenticated())
+    req(comparativeData())
     
     # Trigger para actualizar cuando se presiona el botón
     input$update_renacyt
@@ -1457,7 +1248,7 @@ server <- function(input, output, session) {
   
   # Gráfico de niveles RENACYT
   output$renacyt_levels_plot <- renderPlotly({
-    req(comparativeData(), user_authenticated())
+    req(comparativeData())
     
     # Trigger para actualizar cuando se presiona el botón
     input$update_renacyt
@@ -1542,18 +1333,18 @@ server <- function(input, output, session) {
   })
   
   # -------------------------------------------------------------
-  # Reactivos para análisis comparativo (RESTO DEL CÓDIGO IGUAL)
+  # Reactivos para análisis comparativo
   # -------------------------------------------------------------
   
   # Indicador de que los resultados están listos
   output$comparative_results_ready <- reactive({
-    !is.null(comparativeData()) && user_authenticated()
+    !is.null(comparativeData())
   })
   outputOptions(output, "comparative_results_ready", suspendWhenHidden = FALSE)
   
   # Tabla resumen comparativa
   output$comparative_summary_table <- renderDT({
-    req(comparativeData(), user_authenticated())
+    req(comparativeData())
     
     results <- comparativeData()
     successful_results <- results[sapply(results, function(x) x$success)]
@@ -1600,14 +1391,14 @@ server <- function(input, output, session) {
   
   # Estadísticas generales
   output$total_investigators <- renderText({
-    req(comparativeData(), user_authenticated())
+    req(comparativeData())
     results <- comparativeData()
     successful_results <- results[sapply(results, function(x) x$success)]
     length(successful_results)
   })
   
   output$avg_publications <- renderText({
-    req(comparativeData(), user_authenticated())
+    req(comparativeData())
     results <- comparativeData()
     successful_results <- results[sapply(results, function(x) x$success)]
     
@@ -1618,7 +1409,7 @@ server <- function(input, output, session) {
   })
   
   output$top_score <- renderText({
-    req(comparativeData(), user_authenticated())
+    req(comparativeData())
     results <- comparativeData()
     successful_results <- results[sapply(results, function(x) x$success)]
     
@@ -1631,7 +1422,7 @@ server <- function(input, output, session) {
   })
   
   output$avg_score <- renderText({
-    req(comparativeData(), user_authenticated())
+    req(comparativeData())
     results <- comparativeData()
     successful_results <- results[sapply(results, function(x) x$success)]
     
@@ -1645,7 +1436,7 @@ server <- function(input, output, session) {
   
   # Gráfico comparativo
   output$comparative_plot <- renderPlotly({
-    req(comparativeData(), user_authenticated())
+    req(comparativeData())
     results <- comparativeData()
     successful_results <- results[sapply(results, function(x) x$success)]
     
@@ -1680,7 +1471,7 @@ server <- function(input, output, session) {
   
   # Gráfico de distribución por cuartiles
   output$quartile_plot <- renderPlotly({
-    req(comparativeData(), user_authenticated())
+    req(comparativeData())
     results <- comparativeData()
     successful_results <- results[sapply(results, function(x) x$success)]
     
@@ -1717,7 +1508,7 @@ server <- function(input, output, session) {
   
   # Actualizar choices del selector de investigador
   observeEvent(comparativeData(), {
-    req(comparativeData(), user_authenticated())
+    req(comparativeData())
     results <- comparativeData()
     successful_results <- results[sapply(results, function(x) x$success)]
     
@@ -1731,7 +1522,7 @@ server <- function(input, output, session) {
   
   # Tabla de detalles por investigador
   output$researcher_detail_table <- renderDT({
-    req(comparativeData(), input$selected_researcher, user_authenticated())
+    req(comparativeData(), input$selected_researcher)
     
     results <- comparativeData()
     successful_results <- results[sapply(results, function(x) x$success)]
@@ -1752,8 +1543,7 @@ server <- function(input, output, session) {
           `Cuartil Original` = `Cuartil de ScimagoJR o JCR*`,
           `Cuartil` = Cuartil,
           `Valor` = Value
-        ) %>%
-        mutate(`Año de Publicación` = as.numeric(`Año de Publicación`))
+        )
       
       datatable(
         detail_table,
@@ -1768,7 +1558,7 @@ server <- function(input, output, session) {
   # Handler para descarga de Excel del investigador seleccionado
   output$download_researcher <- downloadHandler(
     filename = function() {
-      req(comparativeData(), input$selected_researcher, user_authenticated())
+      req(comparativeData(), input$selected_researcher)
       
       results <- comparativeData()
       successful_results <- results[sapply(results, function(x) x$success)]
@@ -1783,7 +1573,7 @@ server <- function(input, output, session) {
       }
     },
     content = function(file) {
-      req(comparativeData(), input$selected_researcher, user_authenticated())
+      req(comparativeData(), input$selected_researcher)
       
       results <- comparativeData()
       successful_results <- results[sapply(results, function(x) x$success)]
@@ -1903,8 +1693,7 @@ server <- function(input, output, session) {
             `Cuartil Original` = `Cuartil de ScimagoJR o JCR*`,
             `Cuartil` = Cuartil,
             `Valor` = Value
-          ) %>%
-          mutate(`Año de Publicación` = as.numeric(`Año de Publicación`))
+          )
         
         writeData(wb, "Publicaciones", detail_table, headerStyle = headerStyle)
         
