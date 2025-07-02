@@ -298,7 +298,7 @@ procesar_investigador <- function(url_investigador, df_scopus, Scielo_Data) {
 # INTERFAZ de usuario (UI)
 # -------------------------------------------------------------
 ui <- dashboardPage(
-  dashboardHeader(title = "RenCal", titleWidth = 300),
+  dashboardHeader(title = "RenCal 2.0", titleWidth = 300),
   dashboardSidebar(
     width = 300,
     sidebarMenu(
