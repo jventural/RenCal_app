@@ -4505,8 +4505,11 @@
     ".RData": {
       "checksum": "488f17320a373678a3d2b35446f8f798"
     },
+    ".Renviron": {
+      "checksum": "1a066c98389efac4f5b1f8cb0336c9be"
+    },
     "app.R": {
-      "checksum": "b4c9534af04ecc51ee48e7ba5bbcce46"
+      "checksum": "49154e464479891c8fc1bcddf6b88cae"
     },
     "Codigo asociados.R": {
       "checksum": "920cb6b60320b471b1a585d94b5ff74d"
