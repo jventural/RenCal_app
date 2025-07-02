@@ -51,7 +51,7 @@ library(shinyjs)
 # RENCAL_PASS2=otra_contraseña
 
 get_valid_users <- function() {
-  # Intentar obtener credenciales de variables de entorno
+  # Obtener credenciales de variables de entorno
   users <- list()
   
   # Buscar hasta 10 usuarios configurados
@@ -67,11 +67,9 @@ get_valid_users <- function() {
     }
   }
   
-  # Si no hay variables de entorno configuradas, usar credenciales básicas
-  # (solo para desarrollo inicial - cambiar inmediatamente)
+  # Si no hay variables de entorno configuradas, la aplicación no puede funcionar
   if (length(users) == 0) {
-    warning("No se encontraron credenciales en variables de entorno. Usando credenciales de desarrollo.")
-    users <- list("dev_user" = "change_me_123")
+    stop("Error: No se configuraron credenciales. Configure las variables de entorno RENCAL_USER1 y RENCAL_PASS1 antes de iniciar la aplicación.")
   }
   
   return(users)
