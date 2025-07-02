@@ -43,14 +43,12 @@ library(shinyjs)
 # -------------------------------------------------------------
 # CONFIGURACIÓN DE CREDENCIALES
 # -------------------------------------------------------------
-# Para producción, las credenciales se obtienen de variables de entorno
-# En desarrollo local, puedes crear un archivo .Renviron con:
-# RENCAL_USER1=admin
-# RENCAL_PASS1=123456
-# RENCAL_USER2=investigador  
-# RENCAL_PASS2=renacyt2025
-# RENCAL_USER3=usuario
-# RENCAL_PASS3=rencal123
+# Las credenciales se obtienen de variables de entorno
+# En desarrollo local, crea un archivo .Renviron con:
+# RENCAL_USER1=tu_usuario
+# RENCAL_PASS1=tu_contraseña
+# RENCAL_USER2=otro_usuario  
+# RENCAL_PASS2=otra_contraseña
 
 get_valid_users <- function() {
   # Intentar obtener credenciales de variables de entorno
@@ -69,14 +67,11 @@ get_valid_users <- function() {
     }
   }
   
-  # Si no hay variables de entorno configuradas, usar credenciales por defecto
-  # (solo para desarrollo local)
+  # Si no hay variables de entorno configuradas, usar credenciales básicas
+  # (solo para desarrollo inicial - cambiar inmediatamente)
   if (length(users) == 0) {
-    users <- list(
-      "admin" = "123456",
-      "investigador" = "renacyt2025",
-      "usuario" = "rencal123"
-    )
+    warning("No se encontraron credenciales en variables de entorno. Usando credenciales de desarrollo.")
+    users <- list("dev_user" = "change_me_123")
   }
   
   return(users)
