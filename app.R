@@ -208,18 +208,32 @@ procesar_investigador_mejorado <- function(url_investigador,
     }
     
     # Formación
+    # Formación
     puntaje_formacion <- 0
+    grado_label <- NA_character_
+    
     if (!is.null(formacion) && nrow(formacion) > 0) {
       formacion_scores <- formacion %>%
-        mutate(score = case_when(
-          str_detect(Grado, regex("DOCTOR", ignore_case = TRUE)) ~ 10,
-          str_detect(Grado, regex("MAGISTER", ignore_case = TRUE)) ~ 6,
-          str_detect(Grado, regex("LICENCIADO", ignore_case = TRUE)) ~ 4,
-          str_detect(Grado, regex("BACHILLER", ignore_case = TRUE)) ~ 2,
-          str_detect(Grado, regex("CONSTANCIA DE MATRICULA", ignore_case = TRUE)) ~ 1,
-          TRUE ~ 0
-        ))
+        mutate(
+          score = dplyr::case_when(
+            str_detect(Grado, regex("DOCTOR", ignore_case = TRUE)) ~ 10,
+            str_detect(Grado, regex("MAGISTER|MAESTR|MASTER", ignore_case = TRUE)) ~ 6,
+            str_detect(Grado, regex("LICENCIAD|TITULO PROFESIONAL", ignore_case = TRUE)) ~ 4,
+            str_detect(Grado, regex("BACHILLER", ignore_case = TRUE)) ~ 2,
+            str_detect(Grado, regex("CONSTANCIA DE MATRICULA|ESTUD", ignore_case = TRUE)) ~ 1,
+            TRUE ~ 0
+          ),
+          nivel = dplyr::case_when(
+            str_detect(Grado, regex("DOCTOR", ignore_case = TRUE)) ~ "Doctor",
+            str_detect(Grado, regex("MAGISTER|MAESTR|MASTER", ignore_case = TRUE)) ~ "Magíster",
+            str_detect(Grado, regex("LICENCIAD|TITULO PROFESIONAL", ignore_case = TRUE)) ~ "Licenciado",
+            str_detect(Grado, regex("BACHILLER", ignore_case = TRUE)) ~ "Bachiller",
+            str_detect(Grado, regex("CONSTANCIA DE MATRICULA|ESTUD", ignore_case = TRUE)) ~ "Estudiante",
+            TRUE ~ "—"
+          )
+        )
       puntaje_formacion <- max(formacion_scores$score, na.rm = TRUE)
+      grado_label <- formacion_scores %>% dplyr::filter(score == puntaje_formacion) %>% dplyr::slice(1) %>% dplyr::pull(nivel)
     }
     
     # Asesorías
@@ -242,91 +256,99 @@ procesar_investigador_mejorado <- function(url_investigador,
     puntaje_articulos <- 0
     total_publicaciones <- 0
     cuartiles_count <- NULL
-    dedup_info <- list(duplicates_removed = 0)
+    dedup_info <- list(duplicates_removed = 0, original_count = 0, final_count = 0, duplicate_details = NULL)
     
     if (!is.null(produccion_raw) && nrow(produccion_raw) > 0) {
-      produccion <- produccion_raw %>%
-        mutate(across(where(is.character), enc2utf8))
+      # Normaliza strings
+      produccion <- produccion_raw %>% mutate(across(where(is.character), enc2utf8))
       
-      publicaciones_originales <- nrow(produccion)
-      
-      df_scopus_norm <- df_scopus %>%
-        mutate(Revista_norm = tolower(stringi::stri_trans_general(Revista, "Latin-ASCII")))
-      
+      # Norma revistas y filtra tipos que NO son artículos/capítulos
       produccion_norm <- produccion %>%
-        mutate(Revista_norm = tolower(stringi::stri_trans_general(Revista, "Latin-ASCII")))
-      
-      data_joined <- produccion_norm %>%
-        left_join(df_scopus_norm, by = "Revista_norm", relationship = "many-to-many") %>%
+        mutate(Revista_norm = tolower(stringi::stri_trans_general(Revista, "Latin-ASCII"))) %>%
         filter(!(`Tipo Produccion` %in% c(
-          "DoctoralThesis", "MasterThesis", "Note",
-          "Editorial", "Letter", "Journal - Meeting Abstract"
-        ))) %>%
-        na.omit()
+          "DoctoralThesis", "MasterThesis", "Note", "Editorial",
+          "Letter", "Journal - Meeting Abstract"
+        )))
       
-      if (nrow(data_joined) > 0) {
-        resumen <- data_joined %>%
-          select(Revista_norm, `Ano de Produccion`, Titulo,
-                 `Cuartil de ScimagoJR o JCR*`, Cuartil, Valor)
+      # SCOPUS normalizado y desinflado a relación many-to-one (revista-año)
+      df_scopus_norm <- df_scopus %>%
+        mutate(Revista_norm = tolower(stringi::stri_trans_general(Revista, "Latin-ASCII"))) %>%
+        group_by(Revista_norm, year) %>%
+        slice_max(order_by = Valor, n = 1, with_ties = FALSE) %>%
+        ungroup()
+      
+      if (nrow(produccion_norm) > 0) {
+        # Resumen base (sin joins que dupliquen)
+        resumen <- produccion_norm %>%
+          select(Revista_norm, `Ano de Produccion`, Titulo, `Cuartil de ScimagoJR o JCR*`)
         
+        # Empareja por revista + año (ajuste 2024/2025 → 2024)
         data_joined2 <- resumen %>%
           mutate(
-            AnioProd = suppressWarnings(as.numeric(`Ano de Produccion`)),
+            AnioProd  = suppressWarnings(as.numeric(`Ano de Produccion`)),
             join_year = if_else(AnioProd %in% c(2024, 2025), 2024, AnioProd)
           ) %>%
           left_join(
             df_scopus_norm %>% rename(join_year = year),
-            by = c("Revista_norm", "join_year"),
-            relationship = "many-to-many"
+            by = c("Revista_norm", "join_year")  # many-to-one
           )
         
+        # Tabla previa a deduplicar (SCOPUS ya aplicado)
         df_final_pre <- data_joined2 %>%
           select(Revista_norm, `Ano de Produccion`, Titulo,
-                 `Cuartil de ScimagoJR o JCR*`, Cuartil.y, Valor.y) %>%
-          rename(Cuartil = Cuartil.y, Value = Valor.y)
+                 `Cuartil de ScimagoJR o JCR*`, Cuartil, Valor) %>%
+          # Completar NAs para no perder filas antes del fallback Scielo
+          mutate(
+            Cuartil = tidyr::replace_na(Cuartil, "No Cuartil"),
+            Valor   = tidyr::replace_na(Valor, 0)
+          )
         
-        # Scielo fallback para "No Cuartil"
+        # --- Fallback SCIELO para "No Cuartil" ---
         Scielo_Data_norm <- Scielo_Data %>%
           mutate(
             Revista = tolower(Revista),
             Revista = gsub("[[:punct:]]", "", Revista),
             Revista = trimws(Revista)
-          )
-        
-        scielo_counts <- Scielo_Data_norm %>%
-          group_by(Revista) %>%
-          summarise(n_matches = n(), .groups = "drop")
+          ) %>%
+          count(Revista, name = "n_matches")
         
         df_final_pre <- df_final_pre %>%
-          left_join(scielo_counts, by = c("Revista_norm" = "Revista")) %>%
+          # Alinear normalización para el join con Scielo
+          mutate(Revista_norm_join = gsub("[[:punct:]]", "", Revista_norm),
+                 Revista_norm_join = trimws(Revista_norm_join)) %>%
+          left_join(Scielo_Data_norm %>% rename(Revista_norm_join = Revista),
+                    by = "Revista_norm_join") %>%
           mutate(
-            n_matches = if_else(is.na(n_matches), 0L, n_matches),
-            Value = if_else(Cuartil == "No Cuartil", pmin(n_matches, 10L), Value)
+            n_matches = dplyr::coalesce(n_matches, 0L),
+            Value     = if_else(Cuartil == "No Cuartil", pmin(n_matches, 10L), Valor),
+            Value     = dplyr::coalesce(Value, 0)
           ) %>%
-          select(-n_matches)
+          select(-Revista_norm_join, -n_matches)
         
-        # Deduplicación
+        # --- Deduplicación (mismo universo: antes=después) ---
         if (enable_deduplication && nrow(df_final_pre) > 0) {
           df_final_pre_unique <- df_final_pre %>% distinct()
+          pre_dedup_count <- nrow(df_final_pre_unique)          # base correcta de "originales"
+          
           dedup_result <- deduplicate_publications(
             df_final_pre_unique,
-            year_col = "Ano de Produccion",
+            year_col  = "Ano de Produccion",
             title_col = "Titulo",
             value_col = "Value"
           )
+          
           df_final <- dedup_result$data
           
-          duplicados_reales <- publicaciones_originales - nrow(df_final)
           dedup_info <- list(
-            duplicates_removed = max(0, duplicados_reales),
-            original_count = publicaciones_originales,
-            final_count = nrow(df_final),
-            duplicate_details = dedup_result$duplicate_details
+            duplicates_removed = dedup_result$duplicates_removed, # usar el real
+            original_count     = pre_dedup_count,                 # universo correcto
+            final_count        = nrow(df_final),
+            duplicate_details  = dedup_result$duplicate_details
           )
           
-          if (dedup_info$duplicates_removed > 0) {
+          if ((dedup_info$duplicates_removed %||% 0) > 0) {
             message(sprintf(
-              "Investigador '%s': %d duplicados removidos de %d publicaciones originales",
+              "Investigador '%s': %d duplicados removidos de %d publicaciones (pre-dedup).",
               nombre,
               dedup_info$duplicates_removed,
               dedup_info$original_count
@@ -336,13 +358,14 @@ procesar_investigador_mejorado <- function(url_investigador,
           df_final <- df_final_pre %>% distinct()
           dedup_info <- list(
             duplicates_removed = 0,
-            original_count = publicaciones_originales,
-            final_count = nrow(df_final),
-            duplicate_details = NULL
+            original_count     = nrow(df_final),
+            final_count        = nrow(df_final),
+            duplicate_details  = NULL
           )
         }
         
-        puntaje_articulos <- sum(df_final$Value, na.rm = TRUE)
+        # Puntajes y agregados
+        puntaje_articulos   <- sum(df_final$Value, na.rm = TRUE)
         total_publicaciones <- nrow(df_final)
         
         cuartiles_count <- df_final %>%
@@ -355,6 +378,7 @@ procesar_investigador_mejorado <- function(url_investigador,
       nombre = nombre,
       url = url_investigador,
       puntaje_formacion = puntaje_formacion,
+      grado_label = grado_label,              # <--- NUEVO
       puntaje_articulos = puntaje_articulos,
       puntaje_propiedad = puntaje_propiedad,
       puntaje_asesor = puntaje_asesor,
@@ -365,13 +389,7 @@ procesar_investigador_mejorado <- function(url_investigador,
       success = TRUE
     )
     
-  }, error = function(e) {
-    list(
-      nombre = "Error al procesar",
-      url = url_investigador,
-      error = e$message,
-      success = FALSE
-    )
+    
   })
 }
 
@@ -1122,10 +1140,6 @@ ui <- dashboardPage(
 )
 
 # ===== LÓGICA DEL SERVIDOR =====
-
-# ===== LÓGICA DEL SERVIDOR COMPLETO =====
-# COPIAR ESTE CÓDIGO DESPUÉS DEL UI EN EL MISMO ARCHIVO app.R
-
 server <- function(input, output, session) {
   
   # Cache para datos de referencia
@@ -1229,25 +1243,27 @@ server <- function(input, output, session) {
   output$deduplication_summary <- renderUI({
     req(comparativeData())
     results <- comparativeData()
-    successful_results <- results[sapply(results, function(x) x$success)]
+    successful_results <- results[sapply(results, function(x) isTRUE(x$success))]
     
-    if (length(successful_results) == 0) return(p("No hay datos disponibles"))
+    if (length(successful_results) == 0)
+      return(p("No hay datos disponibles"))
     
+    # Tomar SIEMPRE los números del módulo de deduplicación
     total_original <- sum(sapply(successful_results, function(x) {
-      x$deduplication_info$original_count %||% x$total_publicaciones
+      x$deduplication_info$original_count %||% 0
     }))
     
-    total_final <- sum(sapply(successful_results, function(x) x$total_publicaciones))
+    total_final <- sum(sapply(successful_results, function(x) {
+      x$deduplication_info$final_count %||% 0
+    }))
     
-    total_removed_reported <- sum(sapply(successful_results, function(x) {
+    total_removed <- sum(sapply(successful_results, function(x) {
       x$deduplication_info$duplicates_removed %||% 0
     }))
     
-    total_removed_calc <- max(0, total_original - total_final)
-    total_removed <- ifelse(total_removed_reported > 0, total_removed_reported, total_removed_calc)
+    pct <- ifelse(total_original > 0, (total_removed / total_original) * 100, 0)
     
-    if (input$enable_dedup) {
-      pct <- ifelse(total_original > 0, (total_removed / total_original) * 100, 0)
+    if (isTRUE(input$enable_dedup)) {
       tagList(
         p(style = "color: #2d3748;", tags$strong("Estado:"), " Activado ✅"),
         p(style = "color: #4a5568;", tags$strong("Publicaciones originales totales:"), total_original),
@@ -1257,11 +1273,14 @@ server <- function(input, output, session) {
           sprintf(" (%.1f%% del total)", pct))
       )
     } else {
-      p(style = "color: #718096;",
-        tags$strong("Estado:"), " Desactivado ⚠️",
-        br(), "Los duplicados no serán eliminados automáticamente.")
+      tagList(
+        p(style = "color: #2d3748;", tags$strong("Estado:"), " Desactivado ⚠️"),
+        p(style = "color: #4a5568;",
+          "Los duplicados no se eliminan automáticamente. Los conteos mostrados corresponden al estado sin deduplicación.")
+      )
     }
   })
+  
   
   # === REACTIVE con duplicados globales para el modal (todos)
   dups_global <- reactive({
@@ -1431,43 +1450,44 @@ server <- function(input, output, session) {
     }
     
     summary_data <- purrr::map_dfr(successful_results, function(res) {
-      total_puntaje <- res$puntaje_formacion + res$puntaje_articulos +
-        res$puntaje_propiedad + res$puntaje_asesor
-      
       dup_info <- ""
       if (!is.null(res$deduplication_info) && res$deduplication_info$duplicates_removed > 0) {
         dup_info <- paste0(" (", res$deduplication_info$duplicates_removed, " dup. eliminados)")
       }
-      
       data.frame(
-        Investigador = res$nombre,
-        `Formación Académica` = res$puntaje_formacion,
-        `Artículos Científicos` = res$puntaje_articulos,
+        Investigador            = res$nombre,
+        `Formación Académica`   = res$grado_label %||% "-",
+        `Artículos Científicos` = res$total_publicaciones %||% 0,  # cantidad (no puntaje)
         `Propiedad Intelectual` = res$puntaje_propiedad,
-        `Asesorías` = res$puntaje_asesor,
-        `Total Publicaciones` = paste0(res$total_publicaciones, dup_info),
-        `Puntaje Total` = total_puntaje,
-        URL = res$url,
+        `Asesorías`             = res$puntaje_asesor,
+        `Total Publicaciones`   = paste0(res$total_publicaciones %||% 0, dup_info),
+        URL                     = res$url,
         check.names = FALSE
       )
     })
+    
+    # Índices 0-based para DataTables
+    idx_url <- which(names(summary_data) == "URL") - 1
+    center_targets <- setdiff(1:(ncol(summary_data) - 1), idx_url) # todas menos col 0 (Investigador) y URL
     
     DT::datatable(
       summary_data,
       rownames = FALSE,
       options = list(
         pageLength = 10,
-        autoWidth = TRUE,
-        scrollX = TRUE,
+        autoWidth  = TRUE,
+        scrollX    = TRUE,
         columnDefs = list(
-          list(visible = FALSE, targets = which(names(summary_data) == "URL") - 1)
+          list(visible = FALSE, targets = idx_url),         # ocultar URL
+          list(className = 'dt-left',   targets = 0),       # Investigador a la izquierda
+          list(className = 'dt-center', targets = center_targets)  # resto centradas
         ),
         initComplete = DT::JS(
-          "function(settings, json) {",
-          "  $(this.api().table().container()).css('background-color', 'white');",
-          "  $(this.api().table().node()).css('background-color', 'white');",
-          "  $(this.api().table().body()).css('background-color', 'white');",
-          "}"
+          "function(settings, json) {
+           $(this.api().table().container()).css('background-color', 'white');
+           $(this.api().table().node()).css('background-color', 'white');
+           $(this.api().table().body()).css('background-color', 'white');
+         }"
         )
       )
     ) %>%
@@ -1475,12 +1495,15 @@ server <- function(input, output, session) {
         columns = 1:ncol(summary_data),
         backgroundColor = 'white'
       ) %>%
+      # Refuerzo por si algún CSS externo pisa los className
       DT::formatStyle(
-        columns = "Puntaje Total",
-        backgroundColor = DT::styleInterval(c(10, 25, 50, 100),
-                                            c("#ffcccc", "#ffffcc", "#ccffcc", "#ccffff", "#ccccff"))
-      )
+        columns = setdiff(names(summary_data), c("Investigador", "URL")),
+        textAlign = 'center'
+      ) %>%
+      DT::formatStyle(columns = "Investigador", textAlign = 'left')
   })
+  
+  
   
   # Estadísticas generales
   output$total_investigators <- renderText({
@@ -1969,57 +1992,119 @@ server <- function(input, output, session) {
     updateSelectInput(session, "selected_researcher", choices = choices)
   })
   
+  # --- TABLA: Detalles por Investigador (todas las publicaciones, post-dedup) ---
   output$researcher_detail_table <- DT::renderDT({
     req(comparativeData(), input$selected_researcher)
     
     results <- comparativeData()
-    successful_results <- results[sapply(results, function(x) x$success)]
-    if (length(successful_results) == 0 || is.null(input$selected_researcher)) return(data.frame())
+    successful_results <- results[sapply(results, function(x) isTRUE(x$success))]
+    validate(need(length(successful_results) > 0, "No hay investigadores procesados."))
     
-    selected_idx <- as.numeric(input$selected_researcher)
-    selected_researcher <- successful_results[[selected_idx]]
+    idx <- as.numeric(input$selected_researcher)
+    validate(need(!is.na(idx) && idx >= 1 && idx <= length(successful_results),
+                  "Selecciona un investigador."))
     
-    if (!is.null(selected_researcher$df_final)) {
-      detail_table <- selected_researcher$df_final %>%
-        select(-Revista_norm) %>%
-        rename(
-          `Año de Publicación` = `Ano de Produccion`,
-          `Título` = Titulo,
-          `Cuartil Original` = `Cuartil de ScimagoJR o JCR*`,
-          `Cuartil` = Cuartil,
-          `Valor` = Value
+    sel <- successful_results[[idx]]
+    validate(need(!is.null(sel$df_final) && nrow(sel$df_final) > 0,
+                  "No hay publicaciones para mostrar."))
+    
+    # Asegurar columnas y evitar que un missing rompa el render
+    base <- sel$df_final
+    needed <- c("Ano de Produccion", "Titulo",
+                "Cuartil de ScimagoJR o JCR*", "Cuartil", "Value", "Revista_norm")
+    missing <- setdiff(needed, names(base))
+    if (length(missing)) base[missing] <- NA
+    
+    detail_table <- base %>%
+      select(-Revista_norm) %>%
+      transmute(
+        `Año de Publicación` = `Ano de Produccion`,
+        `Título`             = Titulo,
+        `Cuartil Original`   = `Cuartil de ScimagoJR o JCR*`,
+        `Cuartil`            = Cuartil,
+        `Valor`              = Value
+      )
+    
+    # Render de la tabla (todas las publicaciones detectadas, ya deduplicadas)
+    DT::datatable(
+      detail_table,
+      rownames = FALSE,
+      escape = TRUE,
+      options = list(
+        pageLength = 10,
+        autoWidth  = TRUE,
+        scrollX    = TRUE,
+        initComplete = DT::JS(
+          "function(settings, json) {
+           $(this.api().table().container()).css('background-color', 'white');
+           $(this.api().table().node()).css('background-color', 'white');
+           $(this.api().table().body()).css('background-color', 'white');
+           $('.dataTables_wrapper').css('background-color', 'white');
+         }"
         )
-      
-      DT::datatable(
-        detail_table,
-        rownames = FALSE,
-        options = list(
-          pageLength = 10, 
-          autoWidth = TRUE, 
-          scrollX = TRUE,
-          initComplete = DT::JS(
-            "function(settings, json) {",
-            "  $(this.api().table().container()).css('background-color', 'white');",
-            "  $(this.api().table().node()).css('background-color', 'white');",
-            "  $(this.api().table().body()).css('background-color', 'white');",
-            "  $('.dataTables_wrapper').css('background-color', 'white');",
-            "}"
-          )
-        )
+      )
+    ) %>%
+      DT::formatStyle(
+        columns = 1:ncol(detail_table),
+        backgroundColor = 'white'
       ) %>%
-        DT::formatStyle(
-          columns = 1:ncol(detail_table),
-          backgroundColor = 'white'
-        ) %>%
-        DT::formatStyle(
-          columns = "Valor",
-          backgroundColor = DT::styleInterval(c(1, 5, 10, 15),
-                                              c("#f0f0f0", "#e6f3ff", "#cce7ff", "#99ccff", "#66b2ff"))
-        )
-    } else {
-      data.frame(Mensaje = "No hay datos de publicaciones disponibles")
-    }
+      DT::formatStyle(
+        columns = "Valor",
+        backgroundColor = DT::styleInterval(c(1, 5, 10, 15),
+                                            c("#f0f0f0", "#e6f3ff", "#cce7ff", "#99ccff", "#66b2ff"))
+      )
   })
+  
+  # --- MODAL: Ver duplicados (solo los duplicados eliminados de ese investigador) ---
+  observeEvent(input$openDupModalOne, {
+    req(comparativeData(), input$selected_researcher)
+    
+    results <- comparativeData()
+    successful_results <- results[sapply(results, function(x) isTRUE(x$success))]
+    idx <- as.numeric(input$selected_researcher)
+    sel <- successful_results[[idx]]
+    
+    showModal(modalDialog(
+      title = "Duplicados eliminados — Investigador seleccionado",
+      size = "l",
+      easyClose = TRUE,
+      DTOutput("dups_table_one"),
+      footer = modalButton("Cerrar")
+    ))
+  })
+  
+  output$dups_table_one <- DT::renderDT({
+    req(comparativeData(), input$selected_researcher)
+    results <- comparativeData()
+    successful_results <- results[sapply(results, function(x) isTRUE(x$success))]
+    idx <- as.numeric(input$selected_researcher)
+    sel <- successful_results[[idx]]
+    
+    df <- sel$deduplication_info$duplicate_details
+    
+    if (is.null(df) || !nrow(df)) {
+      return(DT::datatable(
+        data.frame(Mensaje = "Este investigador no tuvo duplicados eliminados."),
+        rownames = FALSE,
+        options = list(pageLength = 10, autoWidth = TRUE, scrollX = TRUE)
+      ))
+    }
+    
+    # Normaliza y muestra sólo los campos relevantes del duplicado
+    keep <- intersect(c("Ano de Produccion", "Titulo", "Value", "duplicate_rank"), names(df))
+    DT::datatable(
+      df[, keep, drop = FALSE] %>%
+        dplyr::rename(
+          `Año de Publicación` = `Ano de Produccion`,
+          `Título`             = Titulo,
+          `Valor`              = Value,
+          `Orden del duplicado`= duplicate_rank
+        ),
+      rownames = FALSE,
+      options = list(pageLength = 10, autoWidth = TRUE, scrollX = TRUE)
+    )
+  })
+  
   
   # Descarga Excel de investigador seleccionado
   output$download_researcher <- downloadHandler(
