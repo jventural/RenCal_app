@@ -266,7 +266,7 @@ procesar_investigador_mejorado <- function(url_investigador,
       produccion_norm <- produccion %>%
         mutate(Revista_norm = tolower(stringi::stri_trans_general(Revista, "Latin-ASCII"))) %>%
         filter(!(`Tipo Produccion` %in% c(
-          "DoctoralThesis", "MasterThesis", "Note", "Editorial",
+          "DoctoralThesis", "MasterThesis", "Note", "Editorial", "BachelorThesis",
           "Letter", "Journal - Meeting Abstract"
         )))
       
