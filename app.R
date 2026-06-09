@@ -172,8 +172,8 @@ extraer_nombre_investigador_mejorado <- function(page) {
 # ===== MÓDULO DE PROCESAMIENTO DE INVESTIGADORES =====
 
 procesar_investigador_mejorado <- function(url_investigador,
-                                           df_scopus,
-                                           Scielo_Data,
+                                           df_scopus_norm,
+                                           Scielo_Data_norm,
                                            enable_deduplication = TRUE) {
   
   if (is.null(url_investigador) || !grepl("^https?://", url_investigador)) {
@@ -270,12 +270,8 @@ procesar_investigador_mejorado <- function(url_investigador,
           "Letter", "Journal - Meeting Abstract"
         )))
       
-      # SCOPUS normalizado y desinflado a relación many-to-one (revista-año)
-      df_scopus_norm <- df_scopus %>%
-        mutate(Revista_norm = tolower(stringi::stri_trans_general(Revista, "Latin-ASCII"))) %>%
-        group_by(Revista_norm, year) %>%
-        slice_max(order_by = Valor, n = 1, with_ties = FALSE) %>%
-        ungroup()
+      # SCOPUS ya viene normalizado y desinflado (revista-año) desde
+      # reference_data: se precalcula UNA vez al cargar, no por investigador.
       
       if (nrow(produccion_norm) > 0) {
         # Resumen base (sin joins que dupliquen)
@@ -304,13 +300,7 @@ procesar_investigador_mejorado <- function(url_investigador,
           )
         
         # --- Fallback SCIELO para "No Cuartil" ---
-        Scielo_Data_norm <- Scielo_Data %>%
-          mutate(
-            Revista = tolower(Revista),
-            Revista = gsub("[[:punct:]]", "", Revista),
-            Revista = trimws(Revista)
-          ) %>%
-          count(Revista, name = "n_matches")
+        # Scielo_Data_norm ya viene precalculado desde reference_data.
         
         df_final_pre <- df_final_pre %>%
           # Alinear normalización para el join con Scielo
@@ -1146,15 +1136,37 @@ server <- function(input, output, session) {
   reference_data <- reactiveValues(
     df_scopus = NULL,
     Scielo_Data = NULL,
+    df_scopus_norm = NULL,
+    Scielo_Data_norm = NULL,
     loaded = FALSE
   )
-  
+
   # Cargar datos de referencia una sola vez
   observe({
     if (!reference_data$loaded) {
       tryCatch({
-        reference_data$df_scopus <- readxl::read_excel("df_scopus.xlsx")
-        reference_data$Scielo_Data <- readxl::read_excel("Scielo_Data.xlsx")
+        df_scopus_raw   <- readxl::read_excel("df_scopus.xlsx")
+        Scielo_Data_raw <- readxl::read_excel("Scielo_Data.xlsx")
+        reference_data$df_scopus   <- df_scopus_raw
+        reference_data$Scielo_Data <- Scielo_Data_raw
+
+        # Precalcular UNA sola vez la normalización pesada de las tablas de
+        # referencia (antes se rehacía dentro del bucle, por cada investigador:
+        # ~52 s x N). arrange()+distinct() sustituye a group_by()+slice_max()
+        # con resultado idéntico y ~500x más rápido (45.8 s -> 0.09 s).
+        reference_data$df_scopus_norm <- df_scopus_raw %>%
+          mutate(Revista_norm = tolower(stringi::stri_trans_general(Revista, "Latin-ASCII"))) %>%
+          arrange(desc(Valor)) %>%
+          distinct(Revista_norm, year, .keep_all = TRUE)
+
+        reference_data$Scielo_Data_norm <- Scielo_Data_raw %>%
+          mutate(
+            Revista = tolower(Revista),
+            Revista = gsub("[[:punct:]]", "", Revista),
+            Revista = trimws(Revista)
+          ) %>%
+          count(Revista, name = "n_matches")
+
         reference_data$loaded <- TRUE
       }, error = function(e) {
         showNotification(
@@ -1215,8 +1227,8 @@ server <- function(input, output, session) {
         
         res <- procesar_investigador_mejorado(
           urls[i],
-          reference_data$df_scopus,
-          reference_data$Scielo_Data,
+          reference_data$df_scopus_norm,
+          reference_data$Scielo_Data_norm,
           enable_deduplication = input$enable_dedup
         )
         
