@@ -1145,27 +1145,43 @@ server <- function(input, output, session) {
   observe({
     if (!reference_data$loaded) {
       tryCatch({
-        df_scopus_raw   <- readxl::read_excel("df_scopus.xlsx")
-        Scielo_Data_raw <- readxl::read_excel("Scielo_Data.xlsx")
-        reference_data$df_scopus   <- df_scopus_raw
-        reference_data$Scielo_Data <- Scielo_Data_raw
+        scopus_rds <- "df_scopus_norm.rds"
+        scielo_rds <- "Scielo_Data_norm.rds"
 
-        # Precalcular UNA sola vez la normalización pesada de las tablas de
-        # referencia (antes se rehacía dentro del bucle, por cada investigador:
-        # ~52 s x N). arrange()+distinct() sustituye a group_by()+slice_max()
-        # con resultado idéntico y ~500x más rápido (45.8 s -> 0.09 s).
-        reference_data$df_scopus_norm <- df_scopus_raw %>%
-          mutate(Revista_norm = tolower(stringi::stri_trans_general(Revista, "Latin-ASCII"))) %>%
-          arrange(desc(Valor)) %>%
-          distinct(Revista_norm, year, .keep_all = TRUE)
+        if (file.exists(scopus_rds) && file.exists(scielo_rds)) {
+          # Caché pre-normalizado: arranque en frío ~0.8 s en vez de ~9 s
+          # (evita leer el xlsx de 14 MB y recalcular la normalización).
+          reference_data$df_scopus_norm   <- readRDS(scopus_rds)
+          reference_data$Scielo_Data_norm <- readRDS(scielo_rds)
+        } else {
+          # Fallback: leer los Excel y precalcular UNA sola vez la
+          # normalización pesada. arrange()+distinct() sustituye a
+          # group_by()+slice_max() con resultado idéntico y ~500x más rápido
+          # (45.8 s -> 0.09 s). Antes esto se rehacía por cada investigador.
+          df_scopus_raw   <- readxl::read_excel("df_scopus.xlsx")
+          Scielo_Data_raw <- readxl::read_excel("Scielo_Data.xlsx")
+          reference_data$df_scopus   <- df_scopus_raw
+          reference_data$Scielo_Data <- Scielo_Data_raw
 
-        reference_data$Scielo_Data_norm <- Scielo_Data_raw %>%
-          mutate(
-            Revista = tolower(Revista),
-            Revista = gsub("[[:punct:]]", "", Revista),
-            Revista = trimws(Revista)
-          ) %>%
-          count(Revista, name = "n_matches")
+          reference_data$df_scopus_norm <- df_scopus_raw %>%
+            mutate(Revista_norm = tolower(stringi::stri_trans_general(Revista, "Latin-ASCII"))) %>%
+            arrange(desc(Valor)) %>%
+            distinct(Revista_norm, year, .keep_all = TRUE)
+
+          reference_data$Scielo_Data_norm <- Scielo_Data_raw %>%
+            mutate(
+              Revista = tolower(Revista),
+              Revista = gsub("[[:punct:]]", "", Revista),
+              Revista = trimws(Revista)
+            ) %>%
+            count(Revista, name = "n_matches")
+
+          # Guardar el caché para los próximos arranques.
+          tryCatch({
+            saveRDS(reference_data$df_scopus_norm,   scopus_rds, compress = "xz")
+            saveRDS(reference_data$Scielo_Data_norm, scielo_rds, compress = "xz")
+          }, error = function(e) NULL)
+        }
 
         reference_data$loaded <- TRUE
       }, error = function(e) {

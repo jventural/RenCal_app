@@ -2,3 +2,8 @@
 .Rhistory
 .RData
 .Ruserdata
+
+# Secretos: nunca subir variables de entorno (claves/credenciales)
+.Renviron
+.Renviron.*
+!.Renviron.example

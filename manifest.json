@@ -4505,11 +4505,8 @@
     ".RData": {
       "checksum": "488f17320a373678a3d2b35446f8f798"
     },
-    ".Renviron": {
-      "checksum": "1a066c98389efac4f5b1f8cb0336c9be"
-    },
     "app.R": {
-      "checksum": "49154e464479891c8fc1bcddf6b88cae"
+      "checksum": "23dc03ff900d01ed7136addd699476da"
     },
     "Codigo asociados.R": {
       "checksum": "920cb6b60320b471b1a585d94b5ff74d"
@@ -4537,6 +4534,12 @@
     },
     "www/anexo1.png": {
       "checksum": "7f2606a1a5bfca5c402827af8201aa63"
+    },
+    "df_scopus_norm.rds": {
+      "checksum": "3017ff63b6c3d28aec92111f3981602a"
+    },
+    "Scielo_Data_norm.rds": {
+      "checksum": "781b27db3a7320e6ee52acf0ebfb4254"
     }
   },
   "users": null
